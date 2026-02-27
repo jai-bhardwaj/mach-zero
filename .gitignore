@@ -1,0 +1,81 @@
+# ==========================================
+# Mach-Zero Monorepo GitIgnore
+# ==========================================
+
+# --- ---
+build/
+bin/
+obj/
+*.o
+*.obj
+*.so
+*.so.*
+*.dylib
+*.a
+*.lib
+*.exe
+*.out
+cmake_install.cmake
+CMakeCache.txt
+CMakeFiles/
+_deps/
+
+# --- [ Python Ecosystem ] ---
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.env
+.venv/
+env/
+venv/
+
+# Notebooks & Tooling
+.ipynb_checkpoints/
+.ruff_cache/
+
+# --- [ Infrastructure & Cloud ] ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+
+# --- ---
+secrets/
+.auth/
+*.pem
+*.key
+*.pub
+credentials.json
+api_keys.json
+
+# --- ---
+data/
+*.parquet
+*.csv
+*.log
+core.*
+
+# --- ---
+*.shm
+*.mmap
+
+# --- ---
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+.DS_Store
