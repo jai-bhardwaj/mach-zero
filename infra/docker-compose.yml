@@ -1,9 +1,64 @@
 services:
   questdb:
     image: questdb/questdb:latest
-    container_name: questdb
+    container_name: mz-questdb
     ports:
-      - "9000:9000"
-      - "8812:8812"
+      - "9000:9000"   # Web console & REST API
+      - "9009:9009"   # ILP ingestion (TCP)
+      - "8812:8812"   # PostgreSQL wire protocol
     volumes:
       - ./data/questdb:/var/lib/questdb
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.gateway
+    container_name: mz-gateway
+    ipc: host
+    volumes:
+      - /dev/shm:/dev/shm
+    depends_on:
+      - questdb
+    restart: unless-stopped
+
+  engine:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.engine
+    container_name: mz-engine
+    ipc: host
+    volumes:
+      - /dev/shm:/dev/shm
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  risk-monitor:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.risk
+    container_name: mz-risk-monitor
+    ipc: host
+    volumes:
+      - /dev/shm:/dev/shm
+    depends_on:
+      - engine
+    restart: unless-stopped
+
+  persistence:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.engine
+    container_name: mz-persistence
+    ipc: host
+    volumes:
+      - /dev/shm:/dev/shm
+    environment:
+      - QUESTDB_HOST=questdb
+      - QUESTDB_PORT=9009
+    depends_on:
+      - questdb
+      - gateway
+    entrypoint: ["persistence_service"]
+    restart: unless-stopped

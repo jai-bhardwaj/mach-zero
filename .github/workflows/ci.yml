@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libssl-dev zlib1g-dev openjdk-17-jdk-headless
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O2 -DNDEBUG"
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Run unit tests
+        run: cd build && ctest --output-on-failure --timeout 60
+
+      - name: Run latency benchmarks
+        run: |
+          cd build
+          ./core/tests/mach_zero_tests --gtest_filter="*Benchmark*" 2>&1 | tee benchmark.txt
+          echo "--- Benchmark Results ---"
+          cat benchmark.txt

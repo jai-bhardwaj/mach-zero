@@ -91,7 +91,13 @@
 
 
 #include "Side.h"
+#include "OrderStatus.h"
+#include "OrderType.h"
 #include "MessageHeader.h"
+#include "Venue.h"
+#include "TimeInForce.h"
+#include "RejectReason.h"
+#include "RiskCommandType.h"
 
 namespace mach_zero {
 namespace market_data {
@@ -112,11 +118,11 @@ private:
     }
 
 public:
-    static constexpr std::uint16_t SBE_BLOCK_LENGTH = static_cast<std::uint16_t>(33);
+    static constexpr std::uint16_t SBE_BLOCK_LENGTH = static_cast<std::uint16_t>(34);
     static constexpr std::uint16_t SBE_TEMPLATE_ID = static_cast<std::uint16_t>(1);
     static constexpr std::uint16_t SBE_SCHEMA_ID = static_cast<std::uint16_t>(1);
-    static constexpr std::uint16_t SBE_SCHEMA_VERSION = static_cast<std::uint16_t>(1);
-    static constexpr const char* SBE_SEMANTIC_VERSION = "1.0";
+    static constexpr std::uint16_t SBE_SCHEMA_VERSION = static_cast<std::uint16_t>(2);
+    static constexpr const char* SBE_SEMANTIC_VERSION = "2.0";
 
     enum MetaAttribute
     {
@@ -170,7 +176,7 @@ public:
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint16_t sbeBlockLength() SBE_NOEXCEPT
     {
-        return static_cast<std::uint16_t>(33);
+        return static_cast<std::uint16_t>(34);
     }
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t sbeBlockAndHeaderLength() SBE_NOEXCEPT
@@ -190,12 +196,12 @@ public:
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint16_t sbeSchemaVersion() SBE_NOEXCEPT
     {
-        return static_cast<std::uint16_t>(1);
+        return static_cast<std::uint16_t>(2);
     }
 
     SBE_NODISCARD static const char *sbeSemanticVersion() SBE_NOEXCEPT
     {
-        return "1.0";
+        return "2.0";
     }
 
     SBE_NODISCARD static SBE_CONSTEXPR const char *sbeSemanticType() SBE_NOEXCEPT
@@ -555,6 +561,61 @@ public:
         return *this;
     }
 
+    SBE_NODISCARD static const char *venueMetaAttribute(const MetaAttribute metaAttribute) SBE_NOEXCEPT
+    {
+        switch (metaAttribute)
+        {
+            case MetaAttribute::PRESENCE: return "required";
+            default: return "";
+        }
+    }
+
+    static SBE_CONSTEXPR std::uint16_t venueId() SBE_NOEXCEPT
+    {
+        return 5;
+    }
+
+    SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t venueSinceVersion() SBE_NOEXCEPT
+    {
+        return 0;
+    }
+
+    SBE_NODISCARD bool venueInActingVersion() SBE_NOEXCEPT
+    {
+        return true;
+    }
+
+    SBE_NODISCARD static SBE_CONSTEXPR std::size_t venueEncodingOffset() SBE_NOEXCEPT
+    {
+        return 25;
+    }
+
+    SBE_NODISCARD static SBE_CONSTEXPR std::size_t venueEncodingLength() SBE_NOEXCEPT
+    {
+        return 1;
+    }
+
+    SBE_NODISCARD std::uint8_t venueRaw() const SBE_NOEXCEPT
+    {
+        std::uint8_t val;
+        std::memcpy(&val, m_buffer + m_offset + 25, sizeof(std::uint8_t));
+        return (val);
+    }
+
+    SBE_NODISCARD Venue::Value venue() const
+    {
+        std::uint8_t val;
+        std::memcpy(&val, m_buffer + m_offset + 25, sizeof(std::uint8_t));
+        return Venue::get((val));
+    }
+
+    Trade &venue(const Venue::Value value) SBE_NOEXCEPT
+    {
+        std::uint8_t val = (value);
+        std::memcpy(m_buffer + m_offset + 25, &val, sizeof(std::uint8_t));
+        return *this;
+    }
+
     SBE_NODISCARD static const char *timestampMetaAttribute(const MetaAttribute metaAttribute) SBE_NOEXCEPT
     {
         switch (metaAttribute)
@@ -566,7 +627,7 @@ public:
 
     static SBE_CONSTEXPR std::uint16_t timestampId() SBE_NOEXCEPT
     {
-        return 5;
+        return 6;
     }
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t timestampSinceVersion() SBE_NOEXCEPT
@@ -581,7 +642,7 @@ public:
 
     SBE_NODISCARD static SBE_CONSTEXPR std::size_t timestampEncodingOffset() SBE_NOEXCEPT
     {
-        return 25;
+        return 26;
     }
 
     static SBE_CONSTEXPR std::uint64_t timestampNullValue() SBE_NOEXCEPT
@@ -607,14 +668,14 @@ public:
     SBE_NODISCARD std::uint64_t timestamp() const SBE_NOEXCEPT
     {
         std::uint64_t val;
-        std::memcpy(&val, m_buffer + m_offset + 25, sizeof(std::uint64_t));
+        std::memcpy(&val, m_buffer + m_offset + 26, sizeof(std::uint64_t));
         return SBE_LITTLE_ENDIAN_ENCODE_64(val);
     }
 
     Trade &timestamp(const std::uint64_t value) SBE_NOEXCEPT
     {
         std::uint64_t val = SBE_LITTLE_ENDIAN_ENCODE_64(value);
-        std::memcpy(m_buffer + m_offset + 25, &val, sizeof(std::uint64_t));
+        std::memcpy(m_buffer + m_offset + 26, &val, sizeof(std::uint64_t));
         return *this;
     }
 
@@ -649,6 +710,10 @@ friend std::basic_ostream<CharT, Traits> & operator << (
     builder << ", ";
     builder << R"("side": )";
     builder << '"' << writer.side() << '"';
+
+    builder << ", ";
+    builder << R"("venue": )";
+    builder << '"' << writer.venue() << '"';
 
     builder << ", ";
     builder << R"("timestamp": )";

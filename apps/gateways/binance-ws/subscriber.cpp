@@ -1,61 +1,85 @@
 #include <Aeron.h>
 #include <mach_zero_market_data/Trade.h>
+#include <mach_zero_market_data/Quote.h>
 #include <mach_zero_market_data/MessageHeader.h>
+#include <mach_zero_market_data/Side.h>
+#include <mach_zero_market_data/Venue.h>
+#include <common/ipc/ChannelConfig.h>
+
 #include <iostream>
 #include <thread>
+#include <atomic>
+#include <csignal>
 
 using namespace mach_zero::market_data;
 using namespace aeron;
 
-// The handler that processes each message fragment
-fragment_handler_t trade_handler() {
-    // Aeron C++ fragment handler: (AtomicBuffer& buffer, util::index_t offset, util::index_t length, Header& header)
-    return [](AtomicBuffer& buffer, util::index_t offset, util::index_t length, Header& /*header*/) {
-        using mach_zero::market_data::MessageHeader;
+static std::atomic<bool> running{true};
 
-        // Decode SBE message header first
+void signalHandler(int) { running.store(false); }
+
+// Dispatch incoming SBE messages based on template ID
+fragment_handler_t marketDataHandler() {
+    return [](AtomicBuffer& buffer, util::index_t offset, util::index_t length, Header& /*header*/) {
         char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
         MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
 
-        if (hdr.templateId() != Trade::sbeTemplateId()) {
-            std::cerr << "Unexpected templateId: " << hdr.templateId() << std::endl;
-            return;
+        switch (hdr.templateId()) {
+            case Trade::sbeTemplateId(): {
+                Trade trade;
+                trade.wrapForDecode(data, MessageHeader::encodedLength(),
+                                    hdr.blockLength(), hdr.version(), length);
+                std::cout << "TRADE | Symbol=" << trade.symbolId()
+                          << " Price=" << (trade.price() / 1e8)
+                          << " Qty=" << (trade.quantity() / 1e8)
+                          << " Side=" << (trade.side() == Side::Buy ? "BUY" : "SELL")
+                          << " Venue=" << (trade.venue() == Venue::Binance ? "BIN" : "NSE")
+                          << std::endl;
+                break;
+            }
+            case Quote::sbeTemplateId(): {
+                Quote quote;
+                quote.wrapForDecode(data, MessageHeader::encodedLength(),
+                                    hdr.blockLength(), hdr.version(), length);
+                std::cout << "QUOTE | Symbol=" << quote.symbolId()
+                          << " Bid=" << (quote.bidPrice() / 1e8)
+                          << "x" << (quote.bidQuantity() / 1e8)
+                          << " Ask=" << (quote.askPrice() / 1e8)
+                          << "x" << (quote.askQuantity() / 1e8)
+                          << " Seq=" << quote.sequenceNumber()
+                          << std::endl;
+                break;
+            }
+            default:
+                std::cerr << "Unknown templateId: " << hdr.templateId() << std::endl;
+                break;
         }
-
-        Trade trade;
-        // Wrap the incoming buffer for zero-copy decoding (after the header)
-        trade.wrapForDecode(
-            data,
-            MessageHeader::encodedLength(),
-            hdr.blockLength(),
-            hdr.version(),
-            length);
-
-        std::cout << ">>> Trade Received | Symbol: " << trade.symbolId()
-                  << " | Price: " << (trade.price() / 1e8) // Assuming 1e8 scaling
-                  << " | Qty: " << trade.quantity()
-                  << " | Side: " << (trade.side() == Side::Buy ? "BUY" : "SELL")
-                  << std::endl;
     };
 }
 
 int main() {
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
+
     Context ctx;
     Aeron aeron(ctx);
 
-    // Subscribe to the same channel/stream as the publisher
-    std::int64_t subId = aeron.addSubscription("aeron:ipc", 1001);
+    std::int64_t subId = aeron.addSubscription(
+        std::string(mach_zero::ipc::IPC_CHANNEL),
+        mach_zero::ipc::MARKET_DATA_STREAM);
+
     auto subscription = aeron.findSubscription(subId);
     while (!subscription) { subscription = aeron.findSubscription(subId); }
 
-    std::cout << "Mach-Zero: Subscriber Monitor Active. Waiting for trades..." << std::endl;
+    std::cout << "Mach-Zero: Market Data Monitor Active. Waiting for data..." << std::endl;
 
-    while (true) {
-        // Poll the bus for new messages
-        int fragmentsRead = subscription->poll(trade_handler(), 10);
+    while (running.load()) {
+        int fragmentsRead = subscription->poll(marketDataHandler(), 10);
         if (fragmentsRead == 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
     }
+
+    std::cout << "Mach-Zero: Monitor stopped." << std::endl;
     return 0;
 }

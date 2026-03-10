@@ -1,42 +1,91 @@
-#include <Aeron.h>
-#include <mach_zero_market_data/Trade.h> // The generated SBE header
+#include <mach_zero_market_data/Trade.h>
+#include <mach_zero_market_data/Quote.h>
+#include <mach_zero_market_data/Venue.h>
+#include <mach_zero_market_data/MessageHeader.h>
+#include "WebSocketClient.h"
+#include "BinanceParser.h"
+#include "SymbolMap.h"
+#include <common/ipc/AeronPublisher.h>
+#include <common/ipc/ChannelConfig.h>
+#include <common/logger/Logger.h>
+
 #include <iostream>
-#include <chrono>
+#include <string>
 #include <thread>
+#include <atomic>
+#include <csignal>
 
 using namespace mach_zero::market_data;
-using namespace aeron;
+using namespace mach_zero::gateway;
+using namespace mach_zero::ipc;
 
-int main() {
-    // 1. Connect to the Aeron Media Driver (ensure it's running!)
-    Context ctx;
-    Aeron aeron(ctx);
-    
-    // 2. Create a Publication on the IPC channel
-    // 'aeron:ipc' is free and uses shared memory locally
-    long publicationId = aeron.addPublication("aeron:ipc", 1001);
-    auto publication = aeron.findPublication(publicationId);
-    while (!publication) { publication = aeron.findPublication(publicationId); }
+static std::atomic<bool> running{true};
 
-    // 3. Prepare the SBE Encoder
-    char buffer[256];
-    AtomicBuffer atomicBuffer(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
-    Trade trade;
+void signalHandler(int) { running.store(false); }
 
-    std::cout << "Mach-Zero: Gateway Starting..." << std::endl;
+int main(int argc, char* argv[]) {
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
 
-    while (true) {
-        // Encode a dummy trade with zero-copy flyweights
-        trade.wrapAndApplyHeader(buffer, 0, sizeof(buffer));
-        trade.symbolId(12345) // e.g., BTCUSDT
-            .price(4500000)   // $45,000.00 (scaled int)
-            .quantity(100)
-            .side(Side::Buy)
-            .timestamp(std::chrono::system_clock::now().time_since_epoch().count());
+    MZ_INFO("Mach-Zero: Binance Gateway Starting...");
 
-        // 4. Offer to the bus (include SBE header + body)
-        publication->offer(atomicBuffer, 0, Trade::sbeBlockAndHeaderLength());
-        
+    // Symbol map for string <-> numeric ID conversion
+    SymbolMap symbolMap;
+
+    // Aeron publisher for market data
+    AeronPublisher publisher(std::string(IPC_CHANNEL), MARKET_DATA_STREAM);
+    MZ_INFO("Aeron publisher ready on MARKET_DATA_STREAM");
+
+    // Parser for Binance JSON -> SBE binary
+    BinanceParser parser(symbolMap);
+
+    // Buffer for SBE encoding
+    char sbeBuffer[512];
+
+    // Connect to Binance combined stream for trades and depth
+    std::string wsUrl = "wss://stream.binance.com:9443/stream?streams="
+                        "btcusdt@trade/ethusdt@trade/"
+                        "btcusdt@depth@100ms/ethusdt@depth@100ms";
+
+    if (argc > 1) {
+        wsUrl = argv[1]; // Allow custom URL override
+    }
+
+    WebSocketClient ws(wsUrl);
+
+    ws.setOnMessage([&](const std::string& message) {
+        // Binance combined stream wraps messages in {"stream":"...","data":{...}}
+        // Try parsing as trade first, then depth update
+        const char* json = message.c_str();
+        size_t jsonLen = message.size();
+
+        // For combined streams, extract the "data" payload
+        // simdjson will handle the full JSON; the parser checks the "e" field
+        // to determine message type
+
+        // Try trade parse
+        size_t len = parser.parseTrade(json, jsonLen, sbeBuffer, sizeof(sbeBuffer));
+        if (len > 0) {
+            publisher.publish(sbeBuffer, len);
+            return;
+        }
+
+        // Try depth update parse
+        len = parser.parseDepthUpdate(json, jsonLen, sbeBuffer, sizeof(sbeBuffer));
+        if (len > 0) {
+            publisher.publish(sbeBuffer, len);
+            return;
+        }
+    });
+
+    ws.start();
+    std::cerr << "Binance WebSocket gateway started. Press Ctrl+C to stop." << std::endl;
+
+    while (running.load()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
+
+    ws.stop();
+    MZ_INFO("Mach-Zero: Binance Gateway Stopped.");
+    return 0;
 }

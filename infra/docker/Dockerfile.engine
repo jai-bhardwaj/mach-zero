@@ -1,0 +1,26 @@
+# Multi-stage build for strategy + risk engine
+FROM ubuntu:22.04 AS builder
+
+RUN apt-get update && apt-get install -y \
+    build-essential cmake git libssl-dev zlib1g-dev \
+    openjdk-17-jdk-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY . .
+
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_FLAGS="-O3 -march=x86-64-v3 -flto -DNDEBUG" && \
+    cmake --build build --target strategy_engine -j$(nproc)
+
+# Runtime image
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    libssl3 zlib1g openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /src/build/apps/engine/strategy_engine /usr/local/bin/
+COPY --from=builder /src/infra/tuning/aeron_config.properties /etc/mach-zero/
+
+ENTRYPOINT ["strategy_engine"]
