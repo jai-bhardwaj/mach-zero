@@ -1,0 +1,270 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+enum TradingMode {
+  MOCK
+  LIVE
+}
+
+model Tenant {
+  id            String      @id @default(uuid())
+  name          String      @unique
+  slug          String      @unique
+  active        Boolean     @default(true)
+  config        Json?
+  createdAt     DateTime    @default(now())
+
+  users         User[]
+  strategies    StrategyConfig[]
+  accounts      TradingAccount[]
+  auditLogs     AuditLog[]
+  capitalPools  CapitalPool[]
+  subscriptions StrategySubscription[]
+  savedViews    SavedTableView[]
+  invites       WorkspaceInvite[]
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  username           String
+  email              String   @unique
+  password           String   @default("")
+  role               Role     @default(VIEWER)
+  active             Boolean  @default(true)
+  onboardingComplete Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  auditLogs    AuditLog[]
+  authAccounts AuthAccount[]
+  savedViews   SavedTableView[]
+
+  @@unique([tenantId, username])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  RISK_MANAGER
+  TRADER
+  VIEWER
+}
+
+model TradingAccount {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  venue     String
+  segments  String[]
+  active    Boolean  @default(true)
+  config    Json?
+  createdAt DateTime @default(now())
+
+  strategies   StrategyConfig[]
+  capitalPools CapitalPool[]
+
+  @@unique([tenantId, name])
+}
+
+enum StrategyStatus {
+  RUNNING
+  PAUSED
+  STOPPED
+  PENDING
+}
+
+model StrategyConfig {
+  id               String          @id @default(uuid())
+  tenantId         String
+  tenant           Tenant          @relation(fields: [tenantId], references: [id])
+  accountId        String?
+  account          TradingAccount? @relation(fields: [accountId], references: [id])
+  name             String
+  type             String
+  symbolId         Int
+  symbolName       String
+  venue            String
+  status           StrategyStatus  @default(PENDING)
+  tradingMode      TradingMode     @default(MOCK)
+  modeChangedAt    DateTime?
+  params           Json
+  maxPositionLimit Float?
+  maxOrderRate     Int?
+  maxDrawdown      Float?
+  riskMultiplier   Float           @default(1.0)
+  updatedAt        DateTime        @updatedAt
+  updatedBy        String?
+
+  allocation   CapitalAllocation?
+  subscription StrategySubscription?
+
+  @@unique([tenantId, name])
+}
+
+model CapitalPool {
+  id             String         @id @default(uuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  accountId      String
+  account        TradingAccount @relation(fields: [accountId], references: [id])
+  totalCapital   Float
+  allocatedTotal Float          @default(0)
+  reservedMargin Float          @default(0)
+  currency       String         @default("USD")
+  updatedAt      DateTime       @updatedAt
+
+  allocations CapitalAllocation[]
+
+  @@unique([tenantId, accountId])
+}
+
+model CapitalAllocation {
+  id           String         @id @default(uuid())
+  poolId       String
+  pool         CapitalPool    @relation(fields: [poolId], references: [id])
+  strategyId   String         @unique
+  strategy     StrategyConfig @relation(fields: [strategyId], references: [id])
+  allocatedAmt Float
+  usedMargin   Float          @default(0)
+  maxDrawdown  Float?
+  updatedAt    DateTime       @updatedAt
+}
+
+enum StrategyCategory {
+  MARKET_MAKING
+  MOMENTUM
+  ARBITRAGE
+  MEAN_REVERSION
+  TREND_FOLLOWING
+  STATISTICAL
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model StrategyTemplate {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  slug            String           @unique
+  description     String
+  longDescription String?
+  type            String
+  category        StrategyCategory
+  riskLevel       RiskLevel
+  params          Json
+  symbolIds       Int[]
+  version         String           @default("1.0.0")
+  returnPct       Float            @default(0)
+  winRate         Float            @default(0)
+  maxDrawdown     Float            @default(0)
+  sharpeRatio     Float            @default(0)
+  totalTrades     Int              @default(0)
+  featured        Boolean          @default(false)
+  active          Boolean          @default(true)
+  minCapital      Float            @default(0)
+  maxDrawdownPct  Float?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  subscriptions StrategySubscription[]
+}
+
+model StrategySubscription {
+  id           String           @id @default(uuid())
+  tenantId     String
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  templateId   String
+  template     StrategyTemplate @relation(fields: [templateId], references: [id])
+  strategyId   String           @unique
+  strategy     StrategyConfig   @relation(fields: [strategyId], references: [id])
+  subscribedAt DateTime         @default(now())
+  subscribedBy String?
+
+  @@unique([tenantId, templateId])
+  @@index([tenantId])
+}
+
+// OAuth account linking (NextAuth adapter)
+model AuthAccount {
+  id                String  @id @default(uuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+}
+
+// Email magic link verification tokens (NextAuth adapter)
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model WorkspaceInvite {
+  id        String    @id @default(uuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  email     String
+  role      Role      @default(VIEWER)
+  invitedBy String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([tenantId, email])
+  @@index([email])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  details   Json?
+  timestamp DateTime @default(now())
+
+  @@index([tenantId, timestamp])
+}
+
+model SavedTableView {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  tableId   String   // "trades" | "orders" | "risk_events" | "positions" | "users"
+  config    Json     // { filters, sorting, columnVisibility, pageSize }
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tableId, name])
+  @@index([tenantId, tableId])
+}

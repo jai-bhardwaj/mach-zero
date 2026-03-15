@@ -1,0 +1,13 @@
+export default function OnboardingLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/30">
+      <div className="w-full max-w-2xl px-4 py-8">
+        {children}
+      </div>
+    </div>
+  );
+}
