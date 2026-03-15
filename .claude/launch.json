@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "next-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/jaibhardwaj/Desktop/mach-zero/apps/web && npm run dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "python-bridge",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["apps/web/bridge/main.py"],
+      "port": 3002
+    }
+  ]
+}

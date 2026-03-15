@@ -1,26 +1,15 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: mz-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: mach_zero
-      POSTGRES_PASSWORD: mach_zero
-      POSTGRES_DB: mach_zero
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-    restart: unless-stopped
-
   questdb:
     image: questdb/questdb:latest
     container_name: mz-questdb
     ports:
-      - "9000:9000"   # Web console & REST API
-      - "9009:9009"   # ILP ingestion (TCP)
-      - "8812:8812"   # PostgreSQL wire protocol
+      - "127.0.0.1:9000:9000"   # Web console (localhost only)
+      - "127.0.0.1:9009:9009"   # ILP ingestion
+      - "127.0.0.1:8812:8812"   # PostgreSQL wire protocol
     volumes:
-      - ./data/questdb:/var/lib/questdb
+      - questdb-data:/var/lib/questdb
+    environment:
+      - QDB_HTTP_MIN_ENABLED=false
     restart: unless-stopped
 
   aeron-driver:
@@ -66,7 +55,7 @@ services:
     container_name: mz-risk-monitor
     ipc: host
     ports:
-      - "8080:8080"   # HTTP control plane (kill-switch)
+      - "127.0.0.1:8080:8080"   # HTTP control plane (localhost only)
     volumes:
       - /dev/shm:/dev/shm
     depends_on:
@@ -105,3 +94,6 @@ services:
     profiles:
       - mock
     restart: unless-stopped
+
+volumes:
+  questdb-data:

@@ -13,6 +13,7 @@
 #include <atomic>
 #include <csignal>
 #include <thread>
+#include <cstdlib>
 
 using namespace mach_zero::transport;
 using namespace mach_zero::ipc;
@@ -27,11 +28,16 @@ int main() {
 
     MZ_INFO("Mach-Zero: Persistence Service Starting...");
 
-    // QuestDB connection
+    // QuestDB connection — read host/port from env vars (set by docker-compose)
     QuestDBSink::Config dbCfg;
-    dbCfg.host = "127.0.0.1";
-    dbCfg.port = 9009;
+    const char* dbHost = std::getenv("QUESTDB_HOST");
+    const char* dbPort = std::getenv("QUESTDB_PORT");
+    dbCfg.host = dbHost ? dbHost : "127.0.0.1";
+    dbCfg.port = dbPort ? static_cast<uint16_t>(std::atoi(dbPort)) : 9009;
     dbCfg.batchSize = 50;
+
+    std::string dbAddr = "Connecting to QuestDB at " + dbCfg.host + ":" + std::to_string(dbCfg.port);
+    MZ_INFO(dbAddr.c_str());
 
     QuestDBSink sink(dbCfg);
     bool dbConnected = sink.connect();
@@ -41,19 +47,32 @@ int main() {
         MZ_WARN("Could not connect to QuestDB -- will buffer and retry");
     }
 
+    // Single shared Aeron instance for this service
+    auto aeron = createAeronInstance();
+
     // Subscribe to all relevant streams
-    AeronSubscriber mdSub(std::string(IPC_CHANNEL), MARKET_DATA_STREAM,
+    AeronSubscriber mdSub(aeron, std::string(IPC_CHANNEL), MARKET_DATA_STREAM,
                           AeronSubscriber::IdleStrategy::Sleeping);
-    AeronSubscriber orderSub(std::string(IPC_CHANNEL), VALIDATED_ORDER_STREAM,
+    AeronSubscriber orderSub(aeron, std::string(IPC_CHANNEL), VALIDATED_ORDER_STREAM,
                              AeronSubscriber::IdleStrategy::Sleeping);
-    AeronSubscriber ackSub(std::string(IPC_CHANNEL), ACK_STREAM,
+    AeronSubscriber ackSub(aeron, std::string(IPC_CHANNEL), ACK_STREAM,
                            AeronSubscriber::IdleStrategy::Sleeping);
 
     uint64_t tradeCount = 0, orderCount = 0, ackCount = 0;
+    uint64_t reconnectCounter = 0;
 
     std::cerr << "Persistence service running. Press Ctrl+C to stop." << std::endl;
 
     while (running.load()) {
+        // Periodic reconnect to QuestDB if disconnected
+        if (!sink.isConnected()) {
+            if (++reconnectCounter % 50000 == 0) {
+                if (sink.connect()) {
+                    MZ_INFO("Reconnected to QuestDB");
+                }
+            }
+        }
+
         // Market data -> trades table
         mdSub.poll(
             [&](aeron::concurrent::AtomicBuffer& buffer, aeron::util::index_t offset,

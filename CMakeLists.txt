@@ -84,6 +84,7 @@ add_subdirectory(apps/engine)
 add_subdirectory(apps/persistence)
 add_subdirectory(apps/risk-monitor)
 add_subdirectory(apps/gateways/nse-oe-sbe)
+add_subdirectory(apps/gateways/mock-exchange)
 
 # =============================================================================
 # Tests

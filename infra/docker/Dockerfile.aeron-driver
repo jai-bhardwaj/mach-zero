@@ -1,0 +1,23 @@
+# Aeron Media Driver — required by all C++ services for IPC
+FROM amazoncorretto:17-alpine
+
+ARG AERON_VERSION=1.44.1
+
+RUN apk add --no-cache wget && \
+    wget -q -O /opt/aeron-all.jar \
+    "https://repo1.maven.org/maven2/io/aeron/aeron-all/${AERON_VERSION}/aeron-all-${AERON_VERSION}.jar" && \
+    apk del wget
+
+# Use default Aeron directory (/dev/shm/aeron-root) to match C++ clients
+# Use SHARED threading (lower CPU) since this is dev — switch to DEDICATED for prod
+ENTRYPOINT ["java", \
+    "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED", \
+    "--add-opens", "java.base/java.nio=ALL-UNNAMED", \
+    "--add-opens", "java.base/java.lang=ALL-UNNAMED", \
+    "-Daeron.dir=/dev/shm/aeron-root", \
+    "-Daeron.threading.mode=SHARED", \
+    "-Daeron.ipc.term.buffer.length=67108864", \
+    "-Daeron.pre.touch.mapped.memory=true", \
+    "-Daeron.client.liveness.timeout=10000000000", \
+    "-cp", "/opt/aeron-all.jar", \
+    "io.aeron.driver.MediaDriver"]

@@ -1,4 +1,4 @@
-# Multi-stage build for strategy + risk engine
+# Multi-stage build for mock exchange gateway
 FROM ubuntu:22.04 AS builder
 
 RUN apt-get update && apt-get install -y \
@@ -10,7 +10,7 @@ WORKDIR /src
 COPY . .
 
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build build --target strategy_engine -j2
+    cmake --build build --target mock_exchange_gateway -j2
 
 # Runtime image
 FROM ubuntu:22.04
@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
     libssl3 zlib1g openjdk-17-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /src/build/apps/engine/strategy_engine /usr/local/bin/
+COPY --from=builder /src/build/apps/gateways/mock-exchange/mock_exchange_gateway /usr/local/bin/
 COPY --from=builder /src/infra/tuning/aeron_config.properties /etc/mach-zero/
 
-ENTRYPOINT ["strategy_engine"]
+ENTRYPOINT ["mock_exchange_gateway"]

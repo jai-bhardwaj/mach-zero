@@ -49,14 +49,17 @@ int main() {
     // Risk engine
     RiskEngine riskEngine;
 
-    // Aeron connections
-    AeronSubscriber mdSubscriber(std::string(IPC_CHANNEL), MARKET_DATA_STREAM,
+    // Single shared Aeron instance for this service
+    auto aeron = createAeronInstance();
+
+    // Aeron connections — all share the same instance
+    AeronSubscriber mdSubscriber(aeron, std::string(IPC_CHANNEL), MARKET_DATA_STREAM,
                                  AeronSubscriber::IdleStrategy::Sleeping);
-    AeronSubscriber ackSubscriber(std::string(IPC_CHANNEL), ACK_STREAM,
+    AeronSubscriber ackSubscriber(aeron, std::string(IPC_CHANNEL), ACK_STREAM,
                                   AeronSubscriber::IdleStrategy::Sleeping);
-    AeronPublisher orderPublisher(std::string(IPC_CHANNEL), ORDER_STREAM);
-    AeronPublisher validatedPublisher(std::string(IPC_CHANNEL), VALIDATED_ORDER_STREAM);
-    AeronPublisher rejectPublisher(std::string(IPC_CHANNEL), ACK_STREAM);
+    AeronPublisher orderPublisher(aeron, std::string(IPC_CHANNEL), ORDER_STREAM);
+    AeronPublisher validatedPublisher(aeron, std::string(IPC_CHANNEL), VALIDATED_ORDER_STREAM);
+    AeronPublisher rejectPublisher(aeron, std::string(IPC_CHANNEL), ACK_STREAM);
 
     char rejectBuf[128];
 

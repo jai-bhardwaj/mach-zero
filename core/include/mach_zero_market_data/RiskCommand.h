@@ -92,6 +92,7 @@
 
 #include "Side.h"
 #include "OrderStatus.h"
+#include "SquareOffScope.h"
 #include "OrderType.h"
 #include "MessageHeader.h"
 #include "Venue.h"

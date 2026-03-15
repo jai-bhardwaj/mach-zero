@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build-and-test:
+  cpp-build-and-test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
 
@@ -34,3 +34,56 @@ jobs:
           ./core/tests/mach_zero_tests --gtest_filter="*Benchmark*" 2>&1 | tee benchmark.txt
           echo "--- Benchmark Results ---"
           cat benchmark.txt
+
+  web-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npx vitest run --reporter=verbose
+
+  # ── Deploy: C++ stack to Oracle Cloud VM ─────────────────────────
+  deploy-engine:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [cpp-build-and-test, web-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Oracle Cloud VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.ORACLE_VM_HOST }}
+          username: ${{ secrets.ORACLE_VM_USER }}
+          key: ${{ secrets.ORACLE_VM_SSH_KEY }}
+          script: |
+            cd ~/mach-zero
+            git pull origin main
+            cd infra
+            docker compose -f docker-compose.prod.yml build --parallel
+            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml ps

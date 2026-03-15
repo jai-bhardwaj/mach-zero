@@ -32,8 +32,11 @@ int main(int argc, char* argv[]) {
     // Symbol map for string <-> numeric ID conversion
     SymbolMap symbolMap;
 
+    // Single shared Aeron instance for this service
+    auto aeron = createAeronInstance();
+
     // Aeron publisher for market data
-    AeronPublisher publisher(std::string(IPC_CHANNEL), MARKET_DATA_STREAM);
+    AeronPublisher publisher(aeron, std::string(IPC_CHANNEL), MARKET_DATA_STREAM);
     MZ_INFO("Aeron publisher ready on MARKET_DATA_STREAM");
 
     // Parser for Binance JSON -> SBE binary
@@ -53,15 +56,28 @@ int main(int argc, char* argv[]) {
 
     WebSocketClient ws(wsUrl);
 
+    // simdjson parser for extracting "data" from combined stream
+    simdjson::ondemand::parser jsonParser;
+
     ws.setOnMessage([&](const std::string& message) {
-        // Binance combined stream wraps messages in {"stream":"...","data":{...}}
-        // Try parsing as trade first, then depth update
         const char* json = message.c_str();
         size_t jsonLen = message.size();
 
-        // For combined streams, extract the "data" payload
-        // simdjson will handle the full JSON; the parser checks the "e" field
-        // to determine message type
+        // Combined stream wraps in {"stream":"...","data":{...}}
+        // Extract the "data" payload as raw JSON for the parser
+        std::string_view payload(json, jsonLen);
+
+        // Quick check: if this looks like a combined stream message, extract "data"
+        // The "data" field contains the actual trade/depth message
+        simdjson::padded_string padded(json, jsonLen);
+        auto doc = jsonParser.iterate(padded);
+        std::string_view rawData;
+        if (!doc["data"].raw_json().get(rawData)) {
+            // Use the extracted data payload
+            json = rawData.data();
+            jsonLen = rawData.size();
+        }
+        // else: not a combined stream, use the original message as-is
 
         // Try trade parse
         size_t len = parser.parseTrade(json, jsonLen, sbeBuffer, sizeof(sbeBuffer));
@@ -82,7 +98,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "Binance WebSocket gateway started. Press Ctrl+C to stop." << std::endl;
 
     while (running.load()) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     ws.stop();

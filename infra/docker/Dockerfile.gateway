@@ -9,9 +9,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /src
 COPY . .
 
-RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_FLAGS="-O3 -march=x86-64-v3 -flto -DNDEBUG" && \
-    cmake --build build --target binance_gateway -j$(nproc)
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_TLS=ON -DUSE_OPEN_SSL=ON && \
+    cmake --build build --target binance_gateway -j2
 
 # Runtime image
 FROM ubuntu:22.04

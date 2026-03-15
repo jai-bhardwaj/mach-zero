@@ -1,6 +1,6 @@
 /* Generated SBE (Simple Binary Encoding) message codec */
-#ifndef _MACH_ZERO_MARKET_DATA_HEARTBEAT_CXX_H_
-#define _MACH_ZERO_MARKET_DATA_HEARTBEAT_CXX_H_
+#ifndef _MACH_ZERO_MARKET_DATA_SQUAREOFFCOMMAND_CXX_H_
+#define _MACH_ZERO_MARKET_DATA_SQUAREOFFCOMMAND_CXX_H_
 
 #if __cplusplus >= 201103L
 #  define SBE_CONSTEXPR constexpr
@@ -103,7 +103,7 @@
 namespace mach_zero {
 namespace market_data {
 
-class Heartbeat
+class SquareOffCommand
 {
 private:
     char *m_buffer = nullptr;
@@ -119,8 +119,8 @@ private:
     }
 
 public:
-    static constexpr std::uint16_t SBE_BLOCK_LENGTH = static_cast<std::uint16_t>(24);
-    static constexpr std::uint16_t SBE_TEMPLATE_ID = static_cast<std::uint16_t>(99);
+    static constexpr std::uint16_t SBE_BLOCK_LENGTH = static_cast<std::uint16_t>(18);
+    static constexpr std::uint16_t SBE_TEMPLATE_ID = static_cast<std::uint16_t>(21);
     static constexpr std::uint16_t SBE_SCHEMA_ID = static_cast<std::uint16_t>(1);
     static constexpr std::uint16_t SBE_SCHEMA_VERSION = static_cast<std::uint16_t>(2);
     static constexpr const char* SBE_SEMANTIC_VERSION = "2.0";
@@ -144,9 +144,9 @@ public:
 
     using messageHeader = MessageHeader;
 
-    Heartbeat() = default;
+    SquareOffCommand() = default;
 
-    Heartbeat(
+    SquareOffCommand(
         char *buffer,
         const std::uint64_t offset,
         const std::uint64_t bufferLength,
@@ -161,23 +161,23 @@ public:
     {
     }
 
-    Heartbeat(char *buffer, const std::uint64_t bufferLength) :
-        Heartbeat(buffer, 0, bufferLength, sbeBlockLength(), sbeSchemaVersion())
+    SquareOffCommand(char *buffer, const std::uint64_t bufferLength) :
+        SquareOffCommand(buffer, 0, bufferLength, sbeBlockLength(), sbeSchemaVersion())
     {
     }
 
-    Heartbeat(
+    SquareOffCommand(
         char *buffer,
         const std::uint64_t bufferLength,
         const std::uint64_t actingBlockLength,
         const std::uint64_t actingVersion) :
-        Heartbeat(buffer, 0, bufferLength, actingBlockLength, actingVersion)
+        SquareOffCommand(buffer, 0, bufferLength, actingBlockLength, actingVersion)
     {
     }
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint16_t sbeBlockLength() SBE_NOEXCEPT
     {
-        return static_cast<std::uint16_t>(24);
+        return static_cast<std::uint16_t>(18);
     }
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t sbeBlockAndHeaderLength() SBE_NOEXCEPT
@@ -187,7 +187,7 @@ public:
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint16_t sbeTemplateId() SBE_NOEXCEPT
     {
-        return static_cast<std::uint16_t>(99);
+        return static_cast<std::uint16_t>(21);
     }
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint16_t sbeSchemaId() SBE_NOEXCEPT
@@ -215,7 +215,7 @@ public:
         return m_offset;
     }
 
-    Heartbeat &wrapForEncode(char *buffer, const std::uint64_t offset, const std::uint64_t bufferLength)
+    SquareOffCommand &wrapForEncode(char *buffer, const std::uint64_t offset, const std::uint64_t bufferLength)
     {
         m_buffer = buffer;
         m_bufferLength = bufferLength;
@@ -226,7 +226,7 @@ public:
         return *this;
     }
 
-    Heartbeat &wrapAndApplyHeader(char *buffer, const std::uint64_t offset, const std::uint64_t bufferLength)
+    SquareOffCommand &wrapAndApplyHeader(char *buffer, const std::uint64_t offset, const std::uint64_t bufferLength)
     {
         messageHeader hdr(buffer, offset, bufferLength, sbeSchemaVersion());
 
@@ -245,7 +245,7 @@ public:
         return *this;
     }
 
-    Heartbeat &wrapForDecode(
+    SquareOffCommand &wrapForDecode(
         char *buffer,
         const std::uint64_t offset,
         const std::uint64_t actingBlockLength,
@@ -261,7 +261,7 @@ public:
         return *this;
     }
 
-    Heartbeat &sbeRewind()
+    SquareOffCommand &sbeRewind()
     {
         return wrapForDecode(m_buffer, m_offset, m_actingBlockLength, m_actingVersion, m_bufferLength);
     }
@@ -293,7 +293,7 @@ public:
 
     SBE_NODISCARD std::uint64_t decodeLength() const
     {
-        Heartbeat skipper(m_buffer, m_offset, m_bufferLength, m_actingBlockLength, m_actingVersion);
+        SquareOffCommand skipper(m_buffer, m_offset, m_bufferLength, m_actingBlockLength, m_actingVersion);
         skipper.skip();
         return skipper.encodedLength();
     }
@@ -318,7 +318,7 @@ public:
         return m_actingVersion;
     }
 
-    SBE_NODISCARD static const char *sourceIdMetaAttribute(const MetaAttribute metaAttribute) SBE_NOEXCEPT
+    SBE_NODISCARD static const char *symbolIdMetaAttribute(const MetaAttribute metaAttribute) SBE_NOEXCEPT
     {
         switch (metaAttribute)
         {
@@ -327,61 +327,61 @@ public:
         }
     }
 
-    static SBE_CONSTEXPR std::uint16_t sourceIdId() SBE_NOEXCEPT
+    static SBE_CONSTEXPR std::uint16_t symbolIdId() SBE_NOEXCEPT
     {
         return 1;
     }
 
-    SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t sourceIdSinceVersion() SBE_NOEXCEPT
+    SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t symbolIdSinceVersion() SBE_NOEXCEPT
     {
         return 0;
     }
 
-    SBE_NODISCARD bool sourceIdInActingVersion() SBE_NOEXCEPT
+    SBE_NODISCARD bool symbolIdInActingVersion() SBE_NOEXCEPT
     {
         return true;
     }
 
-    SBE_NODISCARD static SBE_CONSTEXPR std::size_t sourceIdEncodingOffset() SBE_NOEXCEPT
+    SBE_NODISCARD static SBE_CONSTEXPR std::size_t symbolIdEncodingOffset() SBE_NOEXCEPT
     {
         return 0;
     }
 
-    static SBE_CONSTEXPR std::uint64_t sourceIdNullValue() SBE_NOEXCEPT
+    static SBE_CONSTEXPR std::uint64_t symbolIdNullValue() SBE_NOEXCEPT
     {
         return SBE_NULLVALUE_UINT64;
     }
 
-    static SBE_CONSTEXPR std::uint64_t sourceIdMinValue() SBE_NOEXCEPT
+    static SBE_CONSTEXPR std::uint64_t symbolIdMinValue() SBE_NOEXCEPT
     {
         return UINT64_C(0x0);
     }
 
-    static SBE_CONSTEXPR std::uint64_t sourceIdMaxValue() SBE_NOEXCEPT
+    static SBE_CONSTEXPR std::uint64_t symbolIdMaxValue() SBE_NOEXCEPT
     {
         return UINT64_C(0xfffffffffffffffe);
     }
 
-    static SBE_CONSTEXPR std::size_t sourceIdEncodingLength() SBE_NOEXCEPT
+    static SBE_CONSTEXPR std::size_t symbolIdEncodingLength() SBE_NOEXCEPT
     {
         return 8;
     }
 
-    SBE_NODISCARD std::uint64_t sourceId() const SBE_NOEXCEPT
+    SBE_NODISCARD std::uint64_t symbolId() const SBE_NOEXCEPT
     {
         std::uint64_t val;
         std::memcpy(&val, m_buffer + m_offset + 0, sizeof(std::uint64_t));
         return SBE_LITTLE_ENDIAN_ENCODE_64(val);
     }
 
-    Heartbeat &sourceId(const std::uint64_t value) SBE_NOEXCEPT
+    SquareOffCommand &symbolId(const std::uint64_t value) SBE_NOEXCEPT
     {
         std::uint64_t val = SBE_LITTLE_ENDIAN_ENCODE_64(value);
         std::memcpy(m_buffer + m_offset + 0, &val, sizeof(std::uint64_t));
         return *this;
     }
 
-    SBE_NODISCARD static const char *sequenceNumberMetaAttribute(const MetaAttribute metaAttribute) SBE_NOEXCEPT
+    SBE_NODISCARD static const char *scopeMetaAttribute(const MetaAttribute metaAttribute) SBE_NOEXCEPT
     {
         switch (metaAttribute)
         {
@@ -390,57 +390,104 @@ public:
         }
     }
 
-    static SBE_CONSTEXPR std::uint16_t sequenceNumberId() SBE_NOEXCEPT
+    static SBE_CONSTEXPR std::uint16_t scopeId() SBE_NOEXCEPT
     {
         return 2;
     }
 
-    SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t sequenceNumberSinceVersion() SBE_NOEXCEPT
+    SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t scopeSinceVersion() SBE_NOEXCEPT
     {
         return 0;
     }
 
-    SBE_NODISCARD bool sequenceNumberInActingVersion() SBE_NOEXCEPT
+    SBE_NODISCARD bool scopeInActingVersion() SBE_NOEXCEPT
     {
         return true;
     }
 
-    SBE_NODISCARD static SBE_CONSTEXPR std::size_t sequenceNumberEncodingOffset() SBE_NOEXCEPT
+    SBE_NODISCARD static SBE_CONSTEXPR std::size_t scopeEncodingOffset() SBE_NOEXCEPT
     {
         return 8;
     }
 
-    static SBE_CONSTEXPR std::uint64_t sequenceNumberNullValue() SBE_NOEXCEPT
+    SBE_NODISCARD static SBE_CONSTEXPR std::size_t scopeEncodingLength() SBE_NOEXCEPT
     {
-        return SBE_NULLVALUE_UINT64;
+        return 1;
     }
 
-    static SBE_CONSTEXPR std::uint64_t sequenceNumberMinValue() SBE_NOEXCEPT
+    SBE_NODISCARD std::uint8_t scopeRaw() const SBE_NOEXCEPT
     {
-        return UINT64_C(0x0);
+        std::uint8_t val;
+        std::memcpy(&val, m_buffer + m_offset + 8, sizeof(std::uint8_t));
+        return (val);
     }
 
-    static SBE_CONSTEXPR std::uint64_t sequenceNumberMaxValue() SBE_NOEXCEPT
+    SBE_NODISCARD SquareOffScope::Value scope() const
     {
-        return UINT64_C(0xfffffffffffffffe);
+        std::uint8_t val;
+        std::memcpy(&val, m_buffer + m_offset + 8, sizeof(std::uint8_t));
+        return SquareOffScope::get((val));
     }
 
-    static SBE_CONSTEXPR std::size_t sequenceNumberEncodingLength() SBE_NOEXCEPT
+    SquareOffCommand &scope(const SquareOffScope::Value value) SBE_NOEXCEPT
     {
-        return 8;
+        std::uint8_t val = (value);
+        std::memcpy(m_buffer + m_offset + 8, &val, sizeof(std::uint8_t));
+        return *this;
     }
 
-    SBE_NODISCARD std::uint64_t sequenceNumber() const SBE_NOEXCEPT
+    SBE_NODISCARD static const char *venueMetaAttribute(const MetaAttribute metaAttribute) SBE_NOEXCEPT
     {
-        std::uint64_t val;
-        std::memcpy(&val, m_buffer + m_offset + 8, sizeof(std::uint64_t));
-        return SBE_LITTLE_ENDIAN_ENCODE_64(val);
+        switch (metaAttribute)
+        {
+            case MetaAttribute::PRESENCE: return "required";
+            default: return "";
+        }
     }
 
-    Heartbeat &sequenceNumber(const std::uint64_t value) SBE_NOEXCEPT
+    static SBE_CONSTEXPR std::uint16_t venueId() SBE_NOEXCEPT
     {
-        std::uint64_t val = SBE_LITTLE_ENDIAN_ENCODE_64(value);
-        std::memcpy(m_buffer + m_offset + 8, &val, sizeof(std::uint64_t));
+        return 3;
+    }
+
+    SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t venueSinceVersion() SBE_NOEXCEPT
+    {
+        return 0;
+    }
+
+    SBE_NODISCARD bool venueInActingVersion() SBE_NOEXCEPT
+    {
+        return true;
+    }
+
+    SBE_NODISCARD static SBE_CONSTEXPR std::size_t venueEncodingOffset() SBE_NOEXCEPT
+    {
+        return 9;
+    }
+
+    SBE_NODISCARD static SBE_CONSTEXPR std::size_t venueEncodingLength() SBE_NOEXCEPT
+    {
+        return 1;
+    }
+
+    SBE_NODISCARD std::uint8_t venueRaw() const SBE_NOEXCEPT
+    {
+        std::uint8_t val;
+        std::memcpy(&val, m_buffer + m_offset + 9, sizeof(std::uint8_t));
+        return (val);
+    }
+
+    SBE_NODISCARD Venue::Value venue() const
+    {
+        std::uint8_t val;
+        std::memcpy(&val, m_buffer + m_offset + 9, sizeof(std::uint8_t));
+        return Venue::get((val));
+    }
+
+    SquareOffCommand &venue(const Venue::Value value) SBE_NOEXCEPT
+    {
+        std::uint8_t val = (value);
+        std::memcpy(m_buffer + m_offset + 9, &val, sizeof(std::uint8_t));
         return *this;
     }
 
@@ -455,7 +502,7 @@ public:
 
     static SBE_CONSTEXPR std::uint16_t timestampId() SBE_NOEXCEPT
     {
-        return 3;
+        return 4;
     }
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t timestampSinceVersion() SBE_NOEXCEPT
@@ -470,7 +517,7 @@ public:
 
     SBE_NODISCARD static SBE_CONSTEXPR std::size_t timestampEncodingOffset() SBE_NOEXCEPT
     {
-        return 16;
+        return 10;
     }
 
     static SBE_CONSTEXPR std::uint64_t timestampNullValue() SBE_NOEXCEPT
@@ -496,22 +543,22 @@ public:
     SBE_NODISCARD std::uint64_t timestamp() const SBE_NOEXCEPT
     {
         std::uint64_t val;
-        std::memcpy(&val, m_buffer + m_offset + 16, sizeof(std::uint64_t));
+        std::memcpy(&val, m_buffer + m_offset + 10, sizeof(std::uint64_t));
         return SBE_LITTLE_ENDIAN_ENCODE_64(val);
     }
 
-    Heartbeat &timestamp(const std::uint64_t value) SBE_NOEXCEPT
+    SquareOffCommand &timestamp(const std::uint64_t value) SBE_NOEXCEPT
     {
         std::uint64_t val = SBE_LITTLE_ENDIAN_ENCODE_64(value);
-        std::memcpy(m_buffer + m_offset + 16, &val, sizeof(std::uint64_t));
+        std::memcpy(m_buffer + m_offset + 10, &val, sizeof(std::uint64_t));
         return *this;
     }
 
 template<typename CharT, typename Traits>
 friend std::basic_ostream<CharT, Traits> & operator << (
-    std::basic_ostream<CharT, Traits> &builder, const Heartbeat &_writer)
+    std::basic_ostream<CharT, Traits> &builder, const SquareOffCommand &_writer)
 {
-    Heartbeat writer(
+    SquareOffCommand writer(
         _writer.m_buffer,
         _writer.m_offset,
         _writer.m_bufferLength,
@@ -519,17 +566,21 @@ friend std::basic_ostream<CharT, Traits> & operator << (
         _writer.m_actingVersion);
 
     builder << '{';
-    builder << R"("Name": "Heartbeat", )";
+    builder << R"("Name": "SquareOffCommand", )";
     builder << R"("sbeTemplateId": )";
     builder << writer.sbeTemplateId();
     builder << ", ";
 
-    builder << R"("sourceId": )";
-    builder << +writer.sourceId();
+    builder << R"("symbolId": )";
+    builder << +writer.symbolId();
 
     builder << ", ";
-    builder << R"("sequenceNumber": )";
-    builder << +writer.sequenceNumber();
+    builder << R"("scope": )";
+    builder << '"' << writer.scope() << '"';
+
+    builder << ", ";
+    builder << R"("venue": )";
+    builder << '"' << writer.venue() << '"';
 
     builder << ", ";
     builder << R"("timestamp": )";

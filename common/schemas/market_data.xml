@@ -70,6 +70,11 @@
             <validValue name="ResetPositions">2</validValue>
         </enum>
 
+        <enum name="SquareOffScope" encodingType="uint8" description="Square-off scope">
+            <validValue name="Symbol">0</validValue>
+            <validValue name="All">1</validValue>
+        </enum>
+
         <!-- Semantic types -->
         <type name="Price" primitiveType="int64" description="Fixed-point price (8 decimal places)"/>
         <type name="Quantity" primitiveType="uint64"/>
@@ -158,5 +163,12 @@
     <sbe:message name="RiskCommand" id="20" description="Risk Control Command">
         <field name="commandType" id="1" type="RiskCommandType"/>
         <field name="timestamp"   id="2" type="Timestamp"/>
+    </sbe:message>
+
+    <sbe:message name="SquareOffCommand" id="21" description="Square Off Position(s)">
+        <field name="symbolId"  id="1" type="uint64"/>
+        <field name="scope"     id="2" type="SquareOffScope"/>
+        <field name="venue"     id="3" type="Venue"/>
+        <field name="timestamp" id="4" type="Timestamp"/>
     </sbe:message>
 </sbe:messageSchema>

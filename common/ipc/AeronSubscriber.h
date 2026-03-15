@@ -16,21 +16,27 @@ public:
     enum class IdleStrategy {
         BusySpin,    // Tight loop, lowest latency, burns CPU
         Yielding,    // std::this_thread::yield()
-        Sleeping     // sleep_for(1ms) when no fragments
+        Sleeping     // sleep_for(100us) when no fragments
     };
 
+    // Create with own Aeron instance (legacy — use shared overload in services)
     AeronSubscriber(const std::string& channel, std::int32_t streamId,
                     IdleStrategy idle = IdleStrategy::Sleeping)
         : channel_(channel), streamId_(streamId), idle_(idle)
     {
         aeron::Context ctx;
-        aeron_ = std::make_unique<aeron::Aeron>(ctx);
+        ownedAeron_ = std::make_unique<aeron::Aeron>(ctx);
+        aeron_ = ownedAeron_.get();
+        setupSubscription();
+    }
 
-        std::int64_t subId = aeron_->addSubscription(channel_, streamId_);
-        subscription_ = aeron_->findSubscription(subId);
-        while (!subscription_) {
-            subscription_ = aeron_->findSubscription(subId);
-        }
+    // Create with shared Aeron instance (preferred — avoids heartbeat timeouts)
+    AeronSubscriber(std::shared_ptr<aeron::Aeron> shared, const std::string& channel,
+                    std::int32_t streamId, IdleStrategy idle = IdleStrategy::Sleeping)
+        : channel_(channel), streamId_(streamId), idle_(idle), sharedAeron_(std::move(shared))
+    {
+        aeron_ = sharedAeron_.get();
+        setupSubscription();
     }
 
     // Poll for new messages. Returns the number of fragments read.
@@ -53,6 +59,15 @@ public:
     std::int32_t streamId() const { return streamId_; }
 
 private:
+    void setupSubscription() {
+        std::int64_t subId = aeron_->addSubscription(channel_, streamId_);
+        subscription_ = aeron_->findSubscription(subId);
+        while (!subscription_) {
+            std::this_thread::yield();
+            subscription_ = aeron_->findSubscription(subId);
+        }
+    }
+
     void idle() {
         switch (idle_) {
             case IdleStrategy::BusySpin:
@@ -69,7 +84,9 @@ private:
     std::string channel_;
     std::int32_t streamId_;
     IdleStrategy idle_;
-    std::unique_ptr<aeron::Aeron> aeron_;
+    std::unique_ptr<aeron::Aeron> ownedAeron_;      // Used when no shared instance
+    std::shared_ptr<aeron::Aeron> sharedAeron_;      // Keeps shared instance alive
+    aeron::Aeron* aeron_ = nullptr;                  // Points to whichever is active
     std::shared_ptr<aeron::Subscription> subscription_;
 };
 

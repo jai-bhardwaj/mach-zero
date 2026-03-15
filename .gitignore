@@ -2,7 +2,7 @@
 # Mach-Zero Monorepo GitIgnore
 # ==========================================
 
-# --- ---
+# --- [ C++ Build ] ---
 build/
 bin/
 obj/
@@ -21,6 +21,13 @@ CMakeFiles/
 _deps/
 .cache/
 
+# --- [ Node / Web ] ---
+node_modules/
+.next/
+.vercel/
+.turbo/
+package-lock.json
+
 # --- [ Python Ecosystem ] ---
 __pycache__/
 *.py[cod]
@@ -33,14 +40,24 @@ dist/
 MANIFEST
 
 # Virtual Environments
-.env
 .venv/
-env/
 venv/
 
 # Notebooks & Tooling
 .ipynb_checkpoints/
 .ruff_cache/
+
+# --- [ Environment / Secrets ] ---
+.env
+.env.*
+!.env.production.example
+secrets/
+.auth/
+*.pem
+*.key
+*.pub
+credentials.json
+api_keys.json
 
 # --- [ Infrastructure & Cloud ] ---
 .terraform/
@@ -50,28 +67,20 @@ venv/
 *.tfvars.json
 override.tf
 override.tf.json
+infra/data/
 
-# --- ---
-secrets/
-.auth/
-*.pem
-*.key
-*.pub
-credentials.json
-api_keys.json
-
-# --- ---
+# --- [ Data / Logs ] ---
 data/
 *.parquet
 *.csv
 *.log
 core.*
 
-# --- ---
+# --- [ Shared Memory ] ---
 *.shm
 *.mmap
 
-# --- ---
+# --- [ IDE / OS ] ---
 .vscode/
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -80,3 +89,7 @@ core.*
 *.swp
 *.swo
 .DS_Store
+Thumbs.db
+
+# --- [ Claude Code ] ---
+.claude/worktrees/

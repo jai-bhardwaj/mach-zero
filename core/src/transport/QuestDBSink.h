@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <unistd.h>
 
 namespace mach_zero::transport {
@@ -45,7 +46,20 @@ public:
         struct sockaddr_in addr{};
         addr.sin_family = AF_INET;
         addr.sin_port = htons(config_.port);
-        ::inet_pton(AF_INET, config_.host.c_str(), &addr.sin_addr);
+
+        // Try numeric IP first, fall back to DNS resolution for hostnames
+        if (::inet_pton(AF_INET, config_.host.c_str(), &addr.sin_addr) != 1) {
+            struct addrinfo hints{}, *res = nullptr;
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_STREAM;
+            if (::getaddrinfo(config_.host.c_str(), nullptr, &hints, &res) != 0 || !res) {
+                ::close(fd_);
+                fd_ = -1;
+                return false;
+            }
+            addr.sin_addr = reinterpret_cast<struct sockaddr_in*>(res->ai_addr)->sin_addr;
+            ::freeaddrinfo(res);
+        }
 
         if (::connect(fd_, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
             ::close(fd_);

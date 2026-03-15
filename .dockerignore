@@ -1,0 +1,8 @@
+build/
+node_modules/
+apps/web/
+.git/
+.claude/
+infra/data/
+*.md
+.env*

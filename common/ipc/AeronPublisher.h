@@ -13,17 +13,22 @@ namespace mach_zero::ipc {
 // and finding the publication. Provides a simple publish() interface.
 class AeronPublisher {
 public:
+    // Create with own Aeron instance (legacy — use shared overload in services)
     AeronPublisher(const std::string& channel, std::int32_t streamId)
         : channel_(channel), streamId_(streamId)
     {
         aeron::Context ctx;
-        aeron_ = std::make_unique<aeron::Aeron>(ctx);
+        ownedAeron_ = std::make_unique<aeron::Aeron>(ctx);
+        aeron_ = ownedAeron_.get();
+        setupPublication();
+    }
 
-        std::int64_t pubId = aeron_->addPublication(channel_, streamId_);
-        publication_ = aeron_->findPublication(pubId);
-        while (!publication_) {
-            publication_ = aeron_->findPublication(pubId);
-        }
+    // Create with shared Aeron instance (preferred — avoids heartbeat timeouts)
+    AeronPublisher(std::shared_ptr<aeron::Aeron> shared, const std::string& channel, std::int32_t streamId)
+        : channel_(channel), streamId_(streamId), sharedAeron_(std::move(shared))
+    {
+        aeron_ = sharedAeron_.get();
+        setupPublication();
     }
 
     // Publish a raw buffer. Returns the new stream position on success, or a negative
@@ -45,9 +50,20 @@ public:
     std::int32_t streamId() const { return streamId_; }
 
 private:
+    void setupPublication() {
+        std::int64_t pubId = aeron_->addPublication(channel_, streamId_);
+        publication_ = aeron_->findPublication(pubId);
+        while (!publication_) {
+            std::this_thread::yield();
+            publication_ = aeron_->findPublication(pubId);
+        }
+    }
+
     std::string channel_;
     std::int32_t streamId_;
-    std::unique_ptr<aeron::Aeron> aeron_;
+    std::unique_ptr<aeron::Aeron> ownedAeron_;     // Used when no shared instance
+    std::shared_ptr<aeron::Aeron> sharedAeron_;     // Keeps shared instance alive
+    aeron::Aeron* aeron_ = nullptr;                 // Points to whichever is active
     std::shared_ptr<aeron::Publication> publication_;
 };
 
