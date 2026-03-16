@@ -1,6 +1,6 @@
 {
   "buildCommand": "npx prisma generate && npm run build",
-  "installCommand": "npm ci",
+  "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
   "regions": ["bom1"]
 }
