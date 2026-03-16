@@ -3,7 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { SymbolState, LiveSnapshot } from "@/types";
 
-const WS_URL = process.env.NEXT_PUBLIC_BRIDGE_WS_URL ?? "ws://localhost:3002/ws/live";
+const WS_URL = process.env.NEXT_PUBLIC_BRIDGE_WS_URL ?? "";
+
+// Check if WebSocket URL is usable (not empty, and not ws:// on https:// page)
+function isWsUrlUsable(url: string): boolean {
+  if (!url) return false;
+  if (typeof window !== "undefined" && window.location.protocol === "https:" && url.startsWith("ws://")) {
+    return false;
+  }
+  return true;
+}
 
 export function usePositions() {
   const [symbols, setSymbols] = useState<SymbolState[]>([]);
@@ -13,6 +22,8 @@ export function usePositions() {
   const connectRef = useRef<() => void>(null);
 
   useEffect(() => {
+    if (!isWsUrlUsable(WS_URL)) return;
+
     const connect = () => {
       if (wsRef.current?.readyState === WebSocket.OPEN) return;
 

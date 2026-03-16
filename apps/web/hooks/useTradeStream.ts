@@ -3,7 +3,15 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const WS_URL =
-  process.env.NEXT_PUBLIC_BRIDGE_WS_URL ?? "ws://localhost:3002/ws/live";
+  process.env.NEXT_PUBLIC_BRIDGE_WS_URL ?? "";
+
+function isWsUrlUsable(url: string): boolean {
+  if (!url) return false;
+  if (typeof window !== "undefined" && window.location.protocol === "https:" && url.startsWith("ws://")) {
+    return false;
+  }
+  return true;
+}
 
 interface TradeStreamOptions {
   enabled?: boolean;
@@ -29,7 +37,7 @@ export function useTradeStream({
   }, []);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !isWsUrlUsable(WS_URL)) return;
 
     let disposed = false;
 
