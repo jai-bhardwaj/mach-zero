@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mach-Zero Web Dashboard
 
-## Getting Started
+Next.js 16 web dashboard for the Mach-Zero algorithmic trading system. Manages strategies, trading accounts, risk controls, and real-time market data visualization.
 
-First, run the development server:
+## Quick Start
 
 ```bash
+npm install --legacy-peer-deps
+cp .env.example .env.local    # Fill in your env vars
+npx prisma db push
+npx tsx prisma/seed.ts
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Dashboard** — Live market data, P&L, positions via WebSocket
+- **Strategies** — Create, configure, start/stop with mock/live trading modes
+- **Marketplace** — Pre-built strategy templates with backtest performance metrics
+- **Risk Management** — Kill switch, square-off positions, risk event log
+- **Accounts** — Connect Binance (API keys) and NSE (broker credentials)
+- **Capital Management** — Pool-based allocation per strategy with margin tracking
+- **Settings** — Theme customization, workspace configuration
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Framework**: Next.js 16 (App Router, React Server Components)
+- **Styling**: Tailwind CSS 4, dark mode
+- **Database**: Prisma ORM + PostgreSQL (Aiven)
+- **Auth**: NextAuth.js (Google OAuth + magic link email)
+- **Real-time**: SWR polling + WebSocket (Python bridge)
+- **UI**: Base UI components, Lucide icons
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Deployed on **Vercel** (free tier). Root directory set to `apps/web`.
 
-## Deploy on Vercel
+```bash
+npx vercel --yes --prod
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+See the [main README](../../README.md) for environment variable reference.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start dev server |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run Vitest tests |
+| `npm run db:push` | Push Prisma schema to DB |
+| `npm run db:seed` | Seed database |
+| `npm run db:generate` | Generate Prisma client |

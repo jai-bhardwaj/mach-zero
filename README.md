@@ -1,30 +1,40 @@
 # Mach-Zero
 
-Ultra-low latency algorithmic trading system built in C++20. Targets **Binance** (crypto) and **NSE** (India equity) with sub-microsecond risk validation and nanosecond-precision message encoding.
+Ultra-low latency algorithmic trading system. C++20 core engine with a Next.js 16 web dashboard. Targets **Binance** (crypto) and **NSE** (India equity) with sub-microsecond risk validation and nanosecond-precision message encoding.
 
 ## Architecture
 
 ```
-                        Aeron IPC Bus
-                  ┌──────────────────────────┐
-                  │                          │
-  ┌───────────┐   │  ┌──────────┐  ┌──────┐  │  ┌──────────────┐
-  │ Binance   │───┼─>│ Strategy │─>│ Risk │──┼─>│ Binance REST │──> Exchange
-  │ WebSocket │   │  │ Engine   │  │ Gate │  │  │ Gateway      │
-  └───────────┘   │  └──────────┘  └──────┘  │  └──────────────┘
-                  │       │           │      │
-  ┌───────────┐   │       │           │      │  ┌──────────────┐
-  │ NSE ITCH  │───┤       │           │      ├─>│ NSE OE       │──> Exchange
-  │ Gateway   │   │       │           │      │  │ Gateway      │
-  └───────────┘   │       v           v      │  └──────────────┘
-                  │  ┌──────────┐  ┌──────┐  │
-                  │  │ QuestDB  │  │ Risk │  │
-                  │  │ Sink     │  │ Mon. │  │
-                  │  └──────────┘  └──────┘  │
-                  └──────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                          Vercel (Web)                               │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  Next.js 16 Dashboard                                       │   │
+│  │  Auth (NextAuth) · Strategies · Risk · Marketplace          │   │
+│  └──────────────────────┬───────────────────────────────────────┘   │
+│                         │ REST + WebSocket                          │
+├─────────────────────────┼───────────────────────────────────────────┤
+│                         │                                           │
+│  ┌──────────────────────▼───────────────────────────────────────┐   │
+│  │              Oracle Cloud VM (ARM, 4 CPU, 24 GB)            │   │
+│  │                                                              │   │
+│  │  ┌───────────┐   Aeron IPC Bus   ┌──────────────┐           │   │
+│  │  │ Binance   │──────────────────▶│ Strategy     │           │   │
+│  │  │ WebSocket │    ┌──────────┐   │ Engine       │           │   │
+│  │  └───────────┘    │ Risk     │   └──────┬───────┘           │   │
+│  │                   │ Gate     │◀─────────┘                   │   │
+│  │  ┌───────────┐    │ (<100ns) │   ┌──────────────┐           │   │
+│  │  │ NSE ITCH  │────┤          ├──▶│ Binance REST │──▶ Exch.  │   │
+│  │  │ Gateway   │    └──────────┘   └──────────────┘           │   │
+│  │  └───────────┘         │                                     │   │
+│  │                   ┌────▼─────┐   ┌──────────────┐           │   │
+│  │                   │ QuestDB  │   │ Python       │           │   │
+│  │                   │ (TSDB)   │   │ Bridge (SHM) │           │   │
+│  │                   └──────────┘   └──────────────┘           │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  PostgreSQL (Aiven) ─── User/strategy/account config               │
+└─────────────────────────────────────────────────────────────────────┘
 ```
-
-All inter-process communication uses [Aeron](https://github.com/real-logic/aeron) IPC with [SBE](https://github.com/real-logic/simple-binary-encoding) (Simple Binary Encoding) for zero-copy, fixed-size messages on shared memory.
 
 ## Performance
 
@@ -43,42 +53,83 @@ All inter-process communication uses [Aeron](https://github.com/real-logic/aeron
 ```
 mach-zero/
 ├── apps/
-│   ├── engine/                  # Strategy engine process
+│   ├── web/                       # Next.js 16 web dashboard
+│   │   ├── app/                   # App Router (pages, API routes)
+│   │   ├── components/            # React components
+│   │   ├── prisma/                # Schema + migrations + seed
+│   │   └── types/                 # Shared TypeScript types
+│   ├── engine/                    # C++ strategy engine process
 │   ├── gateways/
-│   │   ├── binance-ws/          # Binance WebSocket market data
-│   │   ├── binance-rest/        # Binance REST order entry
-│   │   ├── nse-md-itch/         # NSE ITCH market data (simulator)
-│   │   └── nse-oe-sbe/          # NSE SBE order entry (simulator)
-│   ├── persistence/             # QuestDB persistence service
-│   └── risk-monitor/            # Terminal dashboard + HTTP kill switch API
+│   │   ├── binance-ws/            # Binance WebSocket market data
+│   │   ├── binance-rest/          # Binance REST order entry
+│   │   ├── nse-md-itch/           # NSE ITCH market data (simulator)
+│   │   └── nse-oe-sbe/            # NSE SBE order entry (simulator)
+│   ├── persistence/               # QuestDB persistence service
+│   └── risk-monitor/              # Terminal dashboard + HTTP kill switch API
 ├── common/
-│   ├── clock/                   # Clock abstraction (ManualClock for testing)
-│   ├── ipc/                     # Aeron publisher/subscriber, shared memory bridge
-│   ├── logger/                  # Lock-free ring buffer logger
-│   ├── memory/                  # Arena allocator, huge page allocator
-│   ├── metrics/                 # Lock-free counters, histograms, Prometheus export
-│   └── schemas/                 # SBE message schema (market_data.xml)
+│   ├── clock/                     # Clock abstraction (ManualClock for testing)
+│   ├── ipc/                       # Aeron publisher/subscriber, shared memory bridge
+│   ├── logger/                    # Lock-free ring buffer logger
+│   ├── memory/                    # Arena allocator, huge page allocator
+│   ├── metrics/                   # Lock-free counters, histograms, Prometheus export
+│   └── schemas/                   # SBE message schema (market_data.xml)
 ├── core/
 │   ├── include/mach_zero_market_data/  # Generated SBE headers
 │   ├── src/
-│   │   ├── matching/            # L2 order book, price levels, pool allocator
-│   │   ├── risk/                # Risk engine, 5 pre-trade checks, kill switch
-│   │   ├── strategy/            # Strategy engine, spread + momentum strategies
-│   │   └── transport/           # QuestDB sink, reconnection, audit logger
-│   └── tests/                   # 117 Google Test cases
+│   │   ├── matching/              # L2 order book, price levels, pool allocator
+│   │   ├── risk/                  # Risk engine, 5 pre-trade checks, kill switch
+│   │   ├── strategy/              # Strategy engine, spread + momentum strategies
+│   │   └── transport/             # QuestDB sink, reconnection, audit logger
+│   └── tests/                     # 117 Google Test cases
 ├── research/
-│   ├── backtesting/             # Backtest engine, simulated exchange
-│   ├── bridge/                  # Python shared memory reader
-│   └── notebooks/               # Jupyter analysis notebooks
+│   ├── backtesting/               # Backtest engine, simulated exchange
+│   ├── bridge/                    # Python shared memory reader
+│   └── notebooks/                 # Jupyter analysis notebooks
 └── infra/
-    ├── docker/                  # Dockerfiles (gateway, engine, risk)
-    ├── schema/                  # QuestDB DDL
-    ├── terraform/               # AWS bare-metal instance config
-    ├── tools/                   # Audit log reader (Python)
-    └── tuning/                  # CPU affinity, Aeron config, latency bench
+    ├── docker/                    # Dockerfiles (gateway, engine, risk)
+    ├── schema/                    # QuestDB DDL
+    └── tuning/                    # CPU affinity, Aeron config, latency bench
 ```
 
-## Building
+## Deployment
+
+### Infrastructure (all free tier)
+
+| Component | Host | Details |
+|---|---|---|
+| Web dashboard | [Vercel](https://vercel.com) | Next.js 16, auto-deploy from GitHub |
+| PostgreSQL | [Aiven](https://aiven.io) | 1 GB free, Asia Pacific region |
+| C++ engine + QuestDB | [Oracle Cloud](https://cloud.oracle.com) | 4 ARM cores, 24 GB RAM, 200 GB |
+
+### Quick Deploy
+
+**Web app (Vercel):**
+```bash
+cd apps/web
+npx vercel --yes --prod
+```
+
+**Backend (Oracle VM):**
+```bash
+ssh ubuntu@YOUR_VM_IP
+cd ~/mach-zero && docker compose up -d
+```
+
+### Environment Variables (Vercel)
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Aiven PostgreSQL connection string |
+| `DIRECT_DATABASE_URL` | Same (no pooler needed for Aiven) |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | `https://your-app.vercel.app` |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `SUPER_ADMIN_EMAILS` | Comma-separated admin emails |
+| `QUESTDB_URL` | `http://VM_IP:9000` |
+| `NEXT_PUBLIC_BRIDGE_WS_URL` | `ws://VM_IP:3002/ws/live` |
+
+## Building the C++ Engine
 
 ### Prerequisites
 
@@ -98,8 +149,6 @@ cmake --build build -j$(nproc)
 
 ```bash
 cd build && ctest --output-on-failure
-# Or directly:
-./build/core/tests/mach_zero_tests
 ```
 
 ### Run Latency Benchmarks
@@ -108,11 +157,43 @@ cd build && ctest --output-on-failure
 ./build/core/tests/mach_zero_tests --gtest_filter="LatencyRegression.*"
 ```
 
+## Web Dashboard
+
+### Setup
+
+```bash
+cd apps/web
+cp .env.example .env.local    # Fill in your env vars
+npm install --legacy-peer-deps
+npx prisma db push
+npx tsx prisma/seed.ts
+npm run dev
+```
+
+### Features
+
+- **Dashboard** — Live market data, P&L, positions via WebSocket
+- **Strategies** — Create, configure, start/stop strategies with mock/live modes
+- **Marketplace** — Pre-built strategy templates with backtest metrics
+- **Risk Management** — Kill switch, square-off, risk event monitoring
+- **Accounts** — Exchange connections (Binance API keys, NSE broker credentials)
+- **Capital Management** — Pool-based capital allocation per strategy
+- **Settings** — Theme, workspace config
+
+### Tech Stack
+
+- Next.js 16 (App Router, Server Components)
+- Tailwind CSS 4
+- Prisma ORM + PostgreSQL
+- NextAuth.js (Google OAuth + email)
+- SWR for real-time polling
+- Base UI components
+
 ## Components
 
 ### SBE Messages
 
-All messages are defined in `common/schemas/market_data.xml` and encoded with SBE for zero-allocation, fixed-size serialization:
+All messages defined in `common/schemas/market_data.xml`, encoded with SBE for zero-allocation, fixed-size serialization:
 
 | Message | ID | Fields |
 |---|---|---|
@@ -142,16 +223,16 @@ Prices use **fixed-point int64** with 8 decimal places (1.0 = 100,000,000).
 
 Pre-trade risk gate with 5 checks, all executing in <100ns p99:
 
-- **KillSwitch** -- Atomic boolean global halt, cross-thread visible in <50ns
-- **PriceBandCheck** -- Rejects orders outside configurable % from last traded price
-- **PositionLimitCheck** -- Net position limits per symbol
-- **OrderRateCheck** -- Sliding window rate limiting
-- **MaxOrderSizeCheck** -- Single order size cap
+- **KillSwitch** — Atomic boolean global halt, cross-thread visible in <50ns
+- **PriceBandCheck** — Rejects orders outside configurable % from last traded price
+- **PositionLimitCheck** — Net position limits per symbol
+- **OrderRateCheck** — Sliding window rate limiting
+- **MaxOrderSizeCheck** — Single order size cap
 
 ### Strategies
 
-- **SimpleSpreadStrategy** -- Market-making: limit orders at configurable offsets from mid price
-- **MomentumStrategy** -- VWAP deviation signals with configurable lookback window
+- **SimpleSpreadStrategy** — Market-making: limit orders at configurable offsets from mid price
+- **MomentumStrategy** — VWAP deviation signals with configurable lookback window
 
 ### Backtesting
 
@@ -160,8 +241,6 @@ BacktestEngine engine;
 engine.addStrategy(std::make_shared<SimpleSpreadStrategy>(cfg));
 auto results = engine.run(events);  // Returns P&L, Sharpe, drawdown, win rate
 ```
-
-Integrates strategy engine, risk engine, and simulated exchange with deterministic replay.
 
 ### Python Bridge
 
@@ -177,25 +256,15 @@ print(f"Bid: {state['bid_price']}, Ask: {state['ask_price']}")
 
 ### Kill Switch Dashboard
 
-HTTP API + web UI at port 8080:
+HTTP API at port 8080:
 
 ```
 GET  /status          # {"killSwitch": false}
-POST /kill-switch/on  # Activate -- halts all order flow
-POST /kill-switch/off # Deactivate -- resume trading
-GET  /                # Web dashboard with toggle button
+POST /kill-switch/on  # Activate — halts all order flow
+POST /kill-switch/off # Deactivate — resume trading
 ```
 
-## Docker
-
-```bash
-cd infra
-docker compose up -d
-```
-
-Brings up QuestDB, gateway, engine, risk monitor, and persistence service. All trading processes share `/dev/shm` for Aeron IPC.
-
-## Running the System
+## Running the Full System
 
 1. **Start Aeron media driver:**
    ```bash
@@ -219,15 +288,9 @@ Brings up QuestDB, gateway, engine, risk monitor, and persistence service. All t
 
 See `infra/tuning/tuning_guide.md` for Linux kernel tuning (isolcpus, nohz_full, huge pages, NUMA, IRQ affinity).
 
-Key settings:
-- Isolate CPU cores for trading hot path
-- Pre-allocate 2MB huge pages for order book and risk state
-- Pin Aeron media driver to dedicated core with busy-spin idle strategy
-- Use `SCHED_FIFO` real-time scheduling for strategy/risk threads
-
 ## Dependencies
 
-All fetched automatically via CMake FetchContent:
+All C++ deps fetched automatically via CMake FetchContent:
 
 | Library | Version | Purpose |
 |---|---|---|
