@@ -7,17 +7,53 @@ on:
     branches: [main]
 
 jobs:
+  # ── Detect which paths changed ──────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      cpp: ${{ steps.filter.outputs.cpp }}
+      web: ${{ steps.filter.outputs.web }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            cpp:
+              - 'core/**'
+              - 'common/**'
+              - 'gateways/**'
+              - 'CMakeLists.txt'
+              - 'cmake/**'
+            web:
+              - 'apps/web/**'
+            infra:
+              - 'infra/**'
+
+  # ── C++ Build & Test (only when C++ files change) ───────────────
   cpp-build-and-test:
+    needs: changes
+    if: needs.changes.outputs.cpp == 'true' || github.event_name == 'push'
     runs-on: ubuntu-22.04
     timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libssl-dev zlib1g-dev openjdk-17-jdk-headless
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/_deps
+          key: cmake-deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            cmake-deps-${{ runner.os }}-
 
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O2 -DNDEBUG"
@@ -35,7 +71,10 @@ jobs:
           echo "--- Benchmark Results ---"
           cat benchmark.txt
 
+  # ── Web Lint & Test (only when web files change) ────────────────
   web-test:
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -64,10 +103,10 @@ jobs:
       - name: Run tests
         run: npx vitest run --reporter=verbose
 
-  # ── Deploy: C++ stack to Oracle Cloud VM ─────────────────────────
+  # ── Deploy: C++ stack to Oracle Cloud VM ────────────────────────
   deploy-engine:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [cpp-build-and-test]
+    needs: [changes, cpp-build-and-test]
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -80,6 +119,7 @@ jobs:
           host: ${{ secrets.ORACLE_VM_HOST }}
           username: ${{ secrets.ORACLE_VM_USER }}
           key: ${{ secrets.ORACLE_VM_SSH_KEY }}
+          command_timeout: 15m
           script: |
             cd ~/mach-zero
             git pull origin main
