@@ -1,7 +1,6 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
 export interface FilterChip {
@@ -16,7 +15,7 @@ interface Props {
   onClearAll: () => void;
 }
 
-export function DataTableFilterChips({ chips, onRemove, onClearAll }: Props) {
+export function DataTableFilterChips({ chips, onRemove }: Props) {
   if (chips.length === 0) return null;
 
   return (

@@ -3,23 +3,28 @@
 import { useState, useEffect, useRef } from "react";
 import type { VisibilityState } from "@tanstack/react-table";
 
+function getStoredVisibility(storageKey: string): VisibilityState {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) return JSON.parse(stored);
+  } catch {
+    // ignore corrupted localStorage
+  }
+  return {};
+}
+
 export function useColumnPreferences(tableId: string) {
   const storageKey = `mach-zero:columns:${tableId}`;
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    () => getStoredVisibility(storageKey)
+  );
   const initialized = useRef(false);
 
-  // Hydrate from localStorage on mount (client-only, avoids SSR mismatch)
+  // Mark as initialized after first render
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        setColumnVisibility(JSON.parse(stored));
-      }
-    } catch {
-      // ignore corrupted localStorage
-    }
     initialized.current = true;
-  }, [storageKey]);
+  }, []);
 
   // Persist to localStorage on changes (skip initial mount to avoid overwriting with {})
   useEffect(() => {

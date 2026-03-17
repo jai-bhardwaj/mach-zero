@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -12,7 +11,6 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { X, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   DataTableFilterChips,
   type FilterChip,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 
 interface Options {
   totalRows: number;
@@ -9,9 +9,14 @@ interface Options {
 }
 
 export function useTableKeyboard({ totalRows, enabled = true, onSelect }: Options) {
-  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
-  const focusedIndexRef = useRef(focusedIndex);
-  focusedIndexRef.current = focusedIndex;
+  const [rawFocusedIndex, setFocusedIndex] = useState<number>(-1);
+
+  // Clamp focused index to valid range without needing an effect
+  const focusedIndex = useMemo(() => {
+    if (totalRows === 0) return -1;
+    if (rawFocusedIndex >= totalRows) return totalRows - 1;
+    return rawFocusedIndex;
+  }, [rawFocusedIndex, totalRows]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -37,9 +42,9 @@ export function useTableKeyboard({ totalRows, enabled = true, onSelect }: Option
           setFocusedIndex((prev) => Math.max(prev - 1, 0));
           break;
         case "Enter":
-          if (focusedIndexRef.current >= 0) {
+          if (focusedIndex >= 0) {
             e.preventDefault();
-            onSelect?.(focusedIndexRef.current);
+            onSelect?.(focusedIndex);
           }
           break;
         case "Escape":
@@ -48,22 +53,13 @@ export function useTableKeyboard({ totalRows, enabled = true, onSelect }: Option
           break;
       }
     },
-    [enabled, totalRows, onSelect]
+    [enabled, totalRows, focusedIndex, onSelect]
   );
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
-
-  // Reset focused index only when rows disappear or index goes out of bounds
-  useEffect(() => {
-    if (totalRows === 0) {
-      setFocusedIndex(-1);
-    } else {
-      setFocusedIndex((prev) => (prev >= totalRows ? totalRows - 1 : prev));
-    }
-  }, [totalRows]);
 
   return { focusedIndex, setFocusedIndex };
 }
