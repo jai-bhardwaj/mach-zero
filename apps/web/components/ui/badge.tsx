@@ -19,6 +19,9 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // Dot variant: 6px colored circle + text, no background fill (Linear/Attio status pattern)
+        // Pass dot color via dotColor prop
+        dot: "bg-transparent h-auto px-0 border-none text-foreground text-xs gap-1.5",
         // Trading status variants
         running: "bg-green-500/10 text-green-400 border-green-500/20",
         paused: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
@@ -35,17 +38,53 @@ const badgeVariants = cva(
   }
 )
 
+/** Dot color presets for the dot variant */
+const DOT_COLORS = {
+  green: "bg-green-400",
+  yellow: "bg-yellow-400",
+  red: "bg-red-400",
+  blue: "bg-blue-400",
+  zinc: "bg-zinc-400",
+  amber: "bg-amber-400",
+} as const
+
+type DotColor = keyof typeof DOT_COLORS
+
+interface BadgeProps
+  extends useRender.ComponentProps<"span">,
+    VariantProps<typeof badgeVariants> {
+  /** Color of the dot indicator (only used with variant="dot") */
+  dotColor?: DotColor
+}
+
 function Badge({
   className,
   variant = "default",
+  dotColor,
   render,
+  children,
   ...props
-}: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+}: BadgeProps) {
+  const isDot = variant === "dot"
+
   return useRender({
     defaultTagName: "span",
     props: mergeProps<"span">(
       {
         className: cn(badgeVariants({ variant }), className),
+        children: isDot ? (
+          <>
+            <span
+              className={cn(
+                "inline-block size-1.5 rounded-full shrink-0",
+                dotColor ? DOT_COLORS[dotColor] : "bg-current"
+              )}
+            />
+            {children}
+          </>
+        ) : (
+          children
+        ),
       },
       props
     ),
@@ -57,4 +96,5 @@ function Badge({
   })
 }
 
-export { Badge, badgeVariants }
+export { Badge, badgeVariants, DOT_COLORS }
+export type { DotColor }

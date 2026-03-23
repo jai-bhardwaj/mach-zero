@@ -157,7 +157,30 @@ export interface TradingAccount {
   segments: string[];
   active: boolean;
   config: Record<string, unknown> | null;
+  status: AccountStatus;
+  statusMessage: string | null;
+  testnet: boolean;
+  lastCheckedAt: string | null;
+  permissions: string[];
   createdAt: string;
+}
+
+// Account connection status
+export type AccountStatus = "connected" | "disconnected" | "error" | "validating";
+
+// Trading account with relations (from API response)
+export interface TradingAccountWithRelations extends TradingAccount {
+  _count?: { strategies: number };
+  tenant?: { name: string };
+}
+
+// Binance credential validation result
+export interface AccountValidationResult {
+  valid: boolean;
+  canTrade?: boolean;
+  permissions?: string[];
+  balances?: { asset: string; free: string; locked: string }[];
+  error?: string;
 }
 
 // ── Venue / Segment / Credential Config ─────────────────────────────

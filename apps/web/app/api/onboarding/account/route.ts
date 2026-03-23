@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
 import { VENUE_SEGMENTS, type Venue } from "@/types";
+import { encryptCredentials } from "@/lib/crypto";
+import type { Prisma } from "@prisma/client";
 
 const VALID_VENUES: Venue[] = ["Binance", "NSE"];
 
@@ -56,10 +58,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Build config with credentials (stored server-side only)
-    const config: Record<string, string | Record<string, string>> = {};
+    // Build config with encrypted credentials
+    let config: Prisma.InputJsonValue | undefined;
     if (credentials && typeof credentials === "object") {
-      config.credentials = credentials as Record<string, string>;
+      const creds = credentials as Record<string, string>;
+      const hasValues = Object.values(creds).some(
+        (v) => typeof v === "string" && v.length > 0
+      );
+      if (hasValues) {
+        config = { encryptedCredentials: encryptCredentials(creds) };
+      }
     }
 
     const account = await prisma.tradingAccount.create({
@@ -68,7 +76,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         venue,
         segments,
-        ...(Object.keys(config).length > 0 ? { config } : {}),
+        ...(config ? { config } : {}),
       },
     });
 

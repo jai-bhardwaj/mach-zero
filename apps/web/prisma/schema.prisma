@@ -59,15 +59,20 @@ enum Role {
 }
 
 model TradingAccount {
-  id        String   @id @default(uuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  name      String
-  venue     String
-  segments  String[]
-  active    Boolean  @default(true)
-  config    Json?
-  createdAt DateTime @default(now())
+  id            String    @id @default(uuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  name          String
+  venue         String
+  segments      String[]
+  active        Boolean   @default(true)
+  config        Json?
+  status        String    @default("disconnected")
+  statusMessage String?
+  testnet       Boolean   @default(true)
+  lastCheckedAt DateTime?
+  permissions   String[]
+  createdAt     DateTime  @default(now())
 
   strategies   StrategyConfig[]
   capitalPools CapitalPool[]
