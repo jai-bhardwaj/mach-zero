@@ -50,9 +50,16 @@ int main() {
     }
 
     // =========================================================================
-    // REST client (stateless — credentials provided per-request)
+    // REST client — simulated mode unless MACH_ZERO_SIMULATED=0
     // =========================================================================
-    BinanceRestClient restClient;
+    const char* simEnv = std::getenv("MACH_ZERO_SIMULATED");
+    bool simulated = !simEnv || std::string(simEnv) != "0";
+    BinanceRestClient restClient(simulated);
+    if (simulated) {
+        MZ_WARN("Running in SIMULATED mode (set MACH_ZERO_SIMULATED=0 for real orders)");
+    } else {
+        MZ_INFO("Running in LIVE mode — orders will hit Binance");
+    }
 
     // Subscribe to validated orders, publish acks
     AeronSubscriber subscriber(std::string(IPC_CHANNEL), VALIDATED_ORDER_STREAM,
