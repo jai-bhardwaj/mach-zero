@@ -15,18 +15,24 @@ struct RestResponse {
     bool success() const { return statusCode >= 200 && statusCode < 300; }
 };
 
+// Per-request credentials (looked up from CredentialCache per order)
+struct OrderCredentials {
+    std::string apiKey;
+    std::string secretKey;
+    std::string baseUrl;  // "https://testnet.binance.vision" or "https://api.binance.com"
+};
+
 // Binance REST API client for order management.
 // Handles HMAC-SHA256 signing for authenticated endpoints.
+// Accepts credentials per-request to support multi-user operation.
 // Currently uses a simulated backend for testnet compatibility.
 class BinanceRestClient {
 public:
-    BinanceRestClient(const std::string& apiKey, const std::string& secretKey,
-                      const std::string& baseUrl = "https://testnet.binance.vision")
-        : apiKey_(apiKey), secretKey_(secretKey), baseUrl_(baseUrl)
-    {}
+    BinanceRestClient() = default;
 
-    // Place a new order. Returns the JSON response.
-    RestResponse placeOrder(const std::string& symbol, const std::string& side,
+    // Place a new order with per-request credentials.
+    RestResponse placeOrder(const OrderCredentials& creds,
+                            const std::string& symbol, const std::string& side,
                             const std::string& type, double quantity, double price) {
         std::ostringstream params;
         params << "symbol=" << symbol
@@ -37,27 +43,37 @@ public:
                << "&timeInForce=GTC"
                << "&timestamp=" << currentTimestampMs();
 
-        return simulatedPost("/api/v3/order", params.str());
+        return simulatedPost(creds, "/api/v3/order", params.str());
     }
 
     // Cancel an order
-    RestResponse cancelOrder(const std::string& symbol, uint64_t orderId) {
+    RestResponse cancelOrder(const OrderCredentials& creds,
+                             const std::string& symbol, uint64_t orderId) {
         std::ostringstream params;
         params << "symbol=" << symbol
                << "&orderId=" << orderId
                << "&timestamp=" << currentTimestampMs();
 
-        return simulatedDelete("/api/v3/order", params.str());
+        return simulatedDelete(creds, "/api/v3/order", params.str());
     }
 
     // Query order status
-    RestResponse queryOrder(const std::string& symbol, uint64_t orderId) {
+    RestResponse queryOrder(const OrderCredentials& creds,
+                            const std::string& symbol, uint64_t orderId) {
         std::ostringstream params;
         params << "symbol=" << symbol
                << "&orderId=" << orderId
                << "&timestamp=" << currentTimestampMs();
 
-        return simulatedGet("/api/v3/order", params.str());
+        return simulatedGet(creds, "/api/v3/order", params.str());
+    }
+
+    // Query account balances
+    RestResponse getAccountInfo(const OrderCredentials& creds) {
+        std::ostringstream params;
+        params << "timestamp=" << currentTimestampMs();
+
+        return simulatedGet(creds, "/api/v3/account", params.str());
     }
 
 private:
@@ -67,8 +83,11 @@ private:
                 std::chrono::system_clock::now().time_since_epoch()).count());
     }
 
-    // Simulated REST calls (real implementation would use libcurl/cpp-httplib)
-    RestResponse simulatedPost(const std::string& /*path*/, const std::string& /*params*/) {
+    // Simulated REST calls (real implementation would use libcurl/cpp-httplib + HMAC signing)
+    // In production, creds.apiKey goes in X-MBX-APIKEY header,
+    // and params are HMAC-SHA256 signed with creds.secretKey
+    RestResponse simulatedPost(const OrderCredentials& /*creds*/,
+                               const std::string& /*path*/, const std::string& /*params*/) {
         static uint64_t orderId = 1000;
         std::ostringstream body;
         body << R"({"orderId":)" << orderId++
@@ -76,17 +95,15 @@ private:
         return {200, body.str()};
     }
 
-    RestResponse simulatedDelete(const std::string& /*path*/, const std::string& /*params*/) {
+    RestResponse simulatedDelete(const OrderCredentials& /*creds*/,
+                                 const std::string& /*path*/, const std::string& /*params*/) {
         return {200, R"({"status":"CANCELED"})"};
     }
 
-    RestResponse simulatedGet(const std::string& /*path*/, const std::string& /*params*/) {
+    RestResponse simulatedGet(const OrderCredentials& /*creds*/,
+                              const std::string& /*path*/, const std::string& /*params*/) {
         return {200, R"({"status":"NEW","executedQty":"0"})"};
     }
-
-    std::string apiKey_;
-    std::string secretKey_;
-    std::string baseUrl_;
 };
 
 } // namespace mach_zero::gateway
