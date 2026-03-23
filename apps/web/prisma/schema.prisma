@@ -29,6 +29,8 @@ model Tenant {
   subscriptions StrategySubscription[]
   savedViews    SavedTableView[]
   invites       WorkspaceInvite[]
+  notificationChannels NotificationChannel[]
+  alerts               Alert[]
 }
 
 model User {
@@ -106,11 +108,13 @@ model StrategyConfig {
   maxOrderRate     Int?
   maxDrawdown      Float?
   riskMultiplier   Float           @default(1.0)
+  configVersion    Int             @default(1)
   updatedAt        DateTime        @updatedAt
   updatedBy        String?
 
-  allocation   CapitalAllocation?
-  subscription StrategySubscription?
+  allocation    CapitalAllocation?
+  subscription  StrategySubscription?
+  configHistory StrategyConfigHistory[]
 
   @@unique([tenantId, name])
 }
@@ -272,4 +276,86 @@ model SavedTableView {
 
   @@unique([userId, tableId, name])
   @@index([tenantId, tableId])
+}
+
+model StrategyConfigHistory {
+  id               String         @id @default(uuid())
+  strategyId       String
+  strategy         StrategyConfig @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  configVersion    Int
+  params           Json
+  maxPositionLimit Float?
+  maxOrderRate     Int?
+  maxDrawdown      Float?
+  riskMultiplier   Float          @default(1.0)
+  changedBy        String?
+  changedAt        DateTime       @default(now())
+
+  @@index([strategyId, configVersion])
+}
+
+enum NotificationChannelType {
+  EMAIL
+  WEBHOOK
+  SLACK
+}
+
+enum AlertTriggerType {
+  RISK_BREACH
+  KILL_SWITCH
+  ORDER_FILL
+  STRATEGY_STATUS_CHANGE
+  PNL_THRESHOLD
+  DRAWDOWN_THRESHOLD
+}
+
+model NotificationChannel {
+  id        String                  @id @default(uuid())
+  tenantId  String
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id])
+  name      String
+  type      NotificationChannelType
+  config    Json
+  enabled   Boolean                 @default(true)
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+
+  alerts           Alert[]
+  notificationLogs NotificationLog[]
+
+  @@unique([tenantId, name])
+}
+
+model Alert {
+  id         String           @id @default(uuid())
+  tenantId   String
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  name       String
+  trigger    AlertTriggerType
+  conditions Json
+  channelId  String
+  channel    NotificationChannel @relation(fields: [channelId], references: [id])
+  enabled    Boolean          @default(true)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  notificationLogs NotificationLog[]
+
+  @@unique([tenantId, name])
+}
+
+model NotificationLog {
+  id        String              @id @default(uuid())
+  tenantId  String
+  channelId String
+  channel   NotificationChannel @relation(fields: [channelId], references: [id])
+  alertId   String?
+  alert     Alert?              @relation(fields: [alertId], references: [id])
+  subject   String
+  body      String
+  status    String
+  error     String?
+  sentAt    DateTime            @default(now())
+
+  @@index([tenantId, sentAt])
 }

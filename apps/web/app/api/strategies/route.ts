@@ -210,6 +210,32 @@ export async function PUT(request: NextRequest) {
       data.modeChangedAt = new Date();
     }
 
+    // Version tracking: snapshot current config before updating params or risk limits
+    const paramsChanged = params !== undefined &&
+      JSON.stringify(params) !== JSON.stringify(current.params);
+    const riskChanged =
+      (maxPositionLimit !== undefined && maxPositionLimit !== current.maxPositionLimit) ||
+      (maxOrderRate !== undefined && maxOrderRate !== current.maxOrderRate) ||
+      (maxDrawdown !== undefined && maxDrawdown !== current.maxDrawdown) ||
+      (riskMultiplier !== undefined && riskMultiplier !== current.riskMultiplier);
+
+    if (paramsChanged || riskChanged) {
+      // Snapshot current values into history
+      await prisma.strategyConfigHistory.create({
+        data: {
+          strategyId: current.id,
+          configVersion: current.configVersion,
+          params: current.params ?? {},
+          maxPositionLimit: current.maxPositionLimit,
+          maxOrderRate: current.maxOrderRate,
+          maxDrawdown: current.maxDrawdown,
+          riskMultiplier: current.riskMultiplier,
+          changedBy: session.userId,
+        },
+      });
+      data.configVersion = current.configVersion + 1;
+    }
+
     const updated = await prisma.strategyConfig.update({
       where: { id },
       data,

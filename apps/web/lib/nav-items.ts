@@ -10,6 +10,8 @@ import {
   Building2,
   Activity,
   Settings,
+  FlaskConical,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,6 +35,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/risk", label: "Risk", icon: ShieldAlert, section: "Operations" },
   { href: "/reports", label: "Reports", icon: BarChart3, section: "Operations" },
   { href: "/accounts", label: "Accounts", icon: Wallet, section: "Operations" },
+  { href: "/backtest", label: "Backtest", icon: FlaskConical, section: "Operations" },
+  { href: "/settings/notifications", label: "Alerts", icon: Bell, section: "Operations" },
   // Admin
   {
     href: "/workspaces",
