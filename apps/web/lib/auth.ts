@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import Apple from "next-auth/providers/apple";
 import Nodemailer from "next-auth/providers/nodemailer";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./db";
@@ -14,11 +13,6 @@ const providers = [
   Google({
     clientId: process.env.GOOGLE_CLIENT_ID!,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    allowDangerousEmailAccountLinking: true,
-  }),
-  Apple({
-    clientId: process.env.APPLE_CLIENT_ID!,
-    clientSecret: process.env.APPLE_CLIENT_SECRET!,
     allowDangerousEmailAccountLinking: true,
   }),
   Nodemailer({
