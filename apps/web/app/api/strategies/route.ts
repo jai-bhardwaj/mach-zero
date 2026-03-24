@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
+import { evaluateAlerts } from "@/lib/alert-evaluator";
 
 // Valid status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -241,6 +242,20 @@ export async function PUT(request: NextRequest) {
       data,
       include: { allocation: true },
     });
+
+    // Trigger alerts on strategy status change
+    if (status && status !== current.status) {
+      evaluateAlerts({
+        type: "STRATEGY_STATUS_CHANGE",
+        tenantId: current.tenantId,
+        data: {
+          name: current.name,
+          status,
+          previousStatus: current.status,
+          tradingMode: updated.tradingMode,
+        },
+      }).catch(() => {}); // Fire and forget
+    }
 
     return NextResponse.json(updated);
   } catch {

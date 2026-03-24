@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
+import { evaluateAlerts } from "@/lib/alert-evaluator";
 
 const KILL_SWITCH_URL = process.env.KILL_SWITCH_URL;
 
@@ -57,6 +58,16 @@ export async function POST(request: NextRequest) {
   }
 
   killSwitchActive = state === "on";
+
+  // Trigger alerts on kill switch activation
+  if (state === "on") {
+    evaluateAlerts({
+      type: "KILL_SWITCH",
+      tenantId: session.tenantId,
+      data: { activatedBy: session.userId, email: session.email },
+    }).catch(() => {}); // Fire and forget
+  }
+
   return NextResponse.json({
     killSwitch: killSwitchActive,
     source: KILL_SWITCH_URL ? "fallback" : "local",
