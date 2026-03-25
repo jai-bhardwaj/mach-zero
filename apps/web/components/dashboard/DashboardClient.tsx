@@ -25,19 +25,23 @@ export function DashboardClient({ hasAccounts, hasStrategies }: Props) {
         />
       )}
       <SummaryCards symbols={symbols} connected={connected} />
-      <div>
-        <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-3">
-          Positions
-        </h3>
-        <PositionsTable symbols={symbols} />
-      </div>
-      <PnLChart />
-      <div>
-        <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-3">
-          Market Data
-        </h3>
-        <MarketDataPanel symbols={symbols} />
-      </div>
+      {!showGettingStarted && (
+        <>
+          <div>
+            <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-3">
+              Positions
+            </h3>
+            <PositionsTable symbols={symbols} />
+          </div>
+          <PnLChart />
+          <div>
+            <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-3">
+              Market Data
+            </h3>
+            <MarketDataPanel symbols={symbols} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
