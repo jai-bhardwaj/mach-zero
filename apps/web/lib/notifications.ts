@@ -59,36 +59,26 @@ export async function sendNotification(
   return status === "sent";
 }
 
-// Email via Resend API
+// Email via Gmail SMTP (same transport as magic links)
 async function sendEmail(
   config: Record<string, unknown>,
   subject: string,
   body: string
 ) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error("RESEND_API_KEY not configured");
+  const { createTransport } = await import("nodemailer");
 
   const to = config.email as string;
   if (!to) throw new Error("No email address configured");
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      from: (config.from as string) || "Mach-Zero <alerts@machzero.io>",
-      to: [to],
-      subject,
-      text: body,
-    }),
-  });
+  const transport = createTransport(
+    process.env.EMAIL_SERVER || "smtp://localhost:1025"
+  );
+  const from =
+    (config.from as string) ||
+    process.env.EMAIL_FROM ||
+    "Mach-Zero <noreply@mach-zero.dev>";
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Resend API error: ${err}`);
-  }
+  await transport.sendMail({ from, to, subject, text: body });
 }
 
 // Webhook via POST
