@@ -8,8 +8,7 @@ import { authConfig } from "./auth.config";
 
 const isDev = process.env.NODE_ENV === "development";
 
-// Send magic link via Resend HTTP API (works on Vercel serverless)
-// Falls back to SMTP for local development
+// Send magic link via Gmail SMTP (works for any recipient)
 async function sendVerificationRequest({
   identifier: email,
   url,
@@ -18,47 +17,23 @@ async function sendVerificationRequest({
   url: string;
   [key: string]: unknown;
 }) {
-  const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || "Mach-Zero <onboarding@resend.dev>";
+  const { createTransport } = await import("nodemailer");
+  const from = process.env.EMAIL_FROM || "Mach-Zero <noreply@mach-zero.dev>";
+  const transport = createTransport(process.env.EMAIL_SERVER || "smtp://localhost:1025");
 
-  if (resendKey) {
-    // Use Resend HTTP API (reliable on serverless)
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendKey}`,
-      },
-      body: JSON.stringify({
-        from,
-        to: email,
-        subject: "Sign in to Mach-Zero",
-        html: `
-          <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #fff; background: #2563eb; padding: 12px 20px; border-radius: 8px; text-align: center;">Mach-Zero</h2>
-            <p>Click the button below to sign in:</p>
-            <a href="${url}" style="display: block; background: #2563eb; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none; text-align: center; font-weight: 600; margin: 20px 0;">Sign in to Mach-Zero</a>
-            <p style="color: #666; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
-          </div>
-        `,
-      }),
-    });
-
-    if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`Resend API error: ${error}`);
-    }
-  } else {
-    // Fallback: use nodemailer/SMTP for local dev
-    const { createTransport } = await import("nodemailer");
-    const transport = createTransport(process.env.EMAIL_SERVER || "smtp://localhost:1025");
-    await transport.sendMail({
-      from,
-      to: email,
-      subject: "Sign in to Mach-Zero",
-      html: `<a href="${url}">Sign in to Mach-Zero</a>`,
-    });
-  }
+  await transport.sendMail({
+    from,
+    to: email,
+    subject: "Sign in to Mach-Zero",
+    html: `
+      <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #fff; background: #2563eb; padding: 12px 20px; border-radius: 8px; text-align: center;">Mach-Zero</h2>
+        <p>Click the button below to sign in:</p>
+        <a href="${url}" style="display: block; background: #2563eb; color: #fff; padding: 12px 20px; border-radius: 6px; text-decoration: none; text-align: center; font-weight: 600; margin: 20px 0;">Sign in to Mach-Zero</a>
+        <p style="color: #666; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
+      </div>
+    `,
+  });
 }
 
 // Build providers list — Credentials only available in development
