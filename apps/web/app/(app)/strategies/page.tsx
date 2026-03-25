@@ -380,10 +380,27 @@ export default function StrategiesPage() {
               <TabsContent key={s} value={s}>
                 {filtered.length === 0 ? (
                   <Card>
-                    <CardContent className="py-8 text-center text-muted-foreground">
-                      {strategies.length === 0
-                        ? "No strategies configured. Click 'Create Strategy' to get started."
-                        : `No ${s} strategies.`}
+                    <CardContent className="py-8 text-center">
+                      {strategies.length === 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-foreground">
+                            No strategies yet
+                          </p>
+                          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                            Create a strategy to start algorithmic trading, or browse the Marketplace for pre-built strategies.
+                          </p>
+                          <div className="flex items-center justify-center gap-2 pt-2">
+                            <a
+                              href="/marketplace"
+                              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                            >
+                              Browse Marketplace
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">{`No ${s} strategies.`}</p>
+                      )}
                     </CardContent>
                   </Card>
                 ) : (

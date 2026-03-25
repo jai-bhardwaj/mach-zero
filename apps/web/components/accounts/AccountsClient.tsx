@@ -107,14 +107,33 @@ export function AccountsClient({ initialAccounts }: Props) {
       </div>
 
       {list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/50 py-12">
-          <p className="text-sm text-muted-foreground mb-3">
-            No trading accounts configured
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 bg-card/50 py-12 px-6">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <PlusIcon className="size-5" />
+          </div>
+          <h3 className="text-sm font-medium text-foreground mb-1">
+            Connect Your Exchange
+          </h3>
+          <p className="text-xs text-muted-foreground text-center max-w-md mb-1">
+            Link your Binance account to start trading. You can use testnet credentials to practice with paper money first.
           </p>
-          <Button size="sm" variant="outline" onClick={handleAdd}>
+          <ol className="text-[11px] text-muted-foreground text-left mb-4 space-y-1 max-w-sm">
+            <li>1. Click &quot;Add Account&quot; below</li>
+            <li>2. Enter your API Key and Secret from Binance</li>
+            <li>3. Validate to confirm the connection</li>
+          </ol>
+          <Button size="sm" onClick={handleAdd}>
             <PlusIcon className="size-3.5" />
             Add Your First Account
           </Button>
+          <a
+            href="https://testnet.binance.vision"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 text-[10px] text-muted-foreground hover:text-foreground underline"
+          >
+            Need testnet keys? Create them on Binance Testnet
+          </a>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
