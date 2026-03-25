@@ -166,6 +166,29 @@ export default function ReportsPage() {
     </div>
   );
 
+  // Show empty state when no data exists
+  if (!isLoading && totalTrades === 0 && totalOrders === 0) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <PageHeader title="Reports" actions={periodSelector} />
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <svg xmlns="http://www.w3.org/2000/svg" className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>
+          </div>
+          <h3 className="text-sm font-medium text-foreground">No trading data yet</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground max-w-sm">
+            Your performance reports, execution analytics, and volume breakdowns will appear here once you start trading.
+          </p>
+          <div className="mt-4">
+            <a href="/backtest" className="rounded-md border border-border bg-card px-4 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors">
+              Run a Backtest
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}

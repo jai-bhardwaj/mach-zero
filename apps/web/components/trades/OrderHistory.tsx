@@ -52,8 +52,8 @@ export function OrderHistory({
       isLoading={isLoading}
       isValidating={isValidating}
       loadingSkeleton={<TableSkeleton columns={7} rows={10} />}
-      emptyMessage="No orders found."
-      emptyDescription="Try adjusting your filters or date range."
+      emptyMessage="No orders yet"
+      emptyDescription="Orders will appear here once a strategy starts trading."
       estimateSize={40}
       overscan={15}
       maxHeight={600}

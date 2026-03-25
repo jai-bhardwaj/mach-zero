@@ -56,8 +56,8 @@ export function TradeBlotter({
       isLoading={isLoading}
       isValidating={isValidating}
       loadingSkeleton={<TableSkeleton columns={6} rows={10} />}
-      emptyMessage="No trades found."
-      emptyDescription="Try adjusting your filters or date range."
+      emptyMessage="No trades yet"
+      emptyDescription="Connect an exchange and start a strategy to see trades here."
       onRowClick={onRowClick}
       focusedRowIndex={focusedRowIndex}
       estimateSize={40}

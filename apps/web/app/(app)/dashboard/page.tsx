@@ -1,32 +1,23 @@
-"use client";
-
-import { usePositions } from "@/hooks/usePositions";
-import { SummaryCards } from "@/components/dashboard/SummaryCards";
-import { PositionsTable } from "@/components/dashboard/PositionsTable";
-import { MarketDataPanel } from "@/components/dashboard/MarketDataPanel";
-import { PnLChart } from "@/components/dashboard/PnLChart";
+import { prisma } from "@/lib/db";
+import { requirePageAuth } from "@/lib/require-auth";
+import { DashboardClient } from "@/components/dashboard/DashboardClient";
 import { PageHeader } from "@/components/ui/page-header";
 
-export default function DashboardPage() {
-  const { symbols, connected } = usePositions();
+export default async function DashboardPage() {
+  const session = await requirePageAuth();
+
+  const [accountCount, strategyCount] = await Promise.all([
+    prisma.tradingAccount.count({ where: { tenantId: session.tenantId } }),
+    prisma.strategyConfig.count({ where: { tenantId: session.tenantId } }),
+  ]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <PageHeader title="Dashboard" />
-      <SummaryCards symbols={symbols} connected={connected} />
-      <div>
-        <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-3">
-          Positions
-        </h3>
-        <PositionsTable symbols={symbols} />
-      </div>
-      <PnLChart />
-      <div>
-        <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-3">
-          Market Data
-        </h3>
-        <MarketDataPanel symbols={symbols} />
-      </div>
+      <DashboardClient
+        hasAccounts={accountCount > 0}
+        hasStrategies={strategyCount > 0}
+      />
     </div>
   );
 }

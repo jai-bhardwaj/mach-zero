@@ -10,6 +10,8 @@ interface Props {
 }
 
 export function SummaryCards({ symbols, connected }: Props) {
+  const hasData = symbols.length > 0;
+
   const totalPnl = symbols.reduce(
     (sum, s) => sum + s.realizedPnl + s.unrealizedPnl,
     0
@@ -22,21 +24,21 @@ export function SummaryCards({ symbols, connected }: Props) {
   const metrics = [
     {
       label: "Total P&L",
-      value: formatPnl(totalPnl),
-      changeColor: pnlColor(totalPnl),
+      value: hasData ? formatPnl(totalPnl) : "---",
+      changeColor: hasData ? pnlColor(totalPnl) : undefined,
     },
     {
       label: "Realized P&L",
-      value: formatPnl(totalRealizedPnl),
-      changeColor: pnlColor(totalRealizedPnl),
+      value: hasData ? formatPnl(totalRealizedPnl) : "---",
+      changeColor: hasData ? pnlColor(totalRealizedPnl) : undefined,
     },
     {
       label: "Active Positions",
-      value: String(activePositions),
+      value: hasData ? String(activePositions) : "---",
     },
     {
       label: "Fills / Orders",
-      value: `${totalTrades} / ${totalOrders}`,
+      value: hasData ? `${totalTrades} / ${totalOrders}` : "--- / ---",
     },
   ];
 
@@ -47,12 +49,20 @@ export function SummaryCards({ symbols, connected }: Props) {
         <span
           className={cn(
             "h-1.5 w-1.5 rounded-full",
-            connected ? "bg-green-500" : "bg-red-500"
+            connected
+              ? "bg-green-500"
+              : hasData
+                ? "bg-red-500"
+                : "bg-amber-500"
           )}
         />
-        {connected ? "Connected" : "Disconnected"}
+        {connected
+          ? "Connected"
+          : hasData
+            ? "Disconnected"
+            : "Waiting for connection"}
         {" · "}
-        {symbols.length} symbols
+        {hasData ? `${symbols.length} symbols` : "No data yet"}
       </div>
     </div>
   );
