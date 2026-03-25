@@ -83,9 +83,9 @@ export default function ReportsPage() {
   const days = period === "1d" ? 1 : period === "7d" ? 7 : 30;
   const isMobile = useIsMobile();
 
-  const { data: perfData, isLoading: perfLoading } = usePerformance(period);
-  const { data: execData, isLoading: execLoading } = useExecution(days);
-  const { data: volData, isLoading: volLoading } = useVolume(days);
+  const { data: perfData, isLoading: perfLoading, error: perfError } = usePerformance(period);
+  const { data: execData, isLoading: execLoading, error: execError } = useExecution(days);
+  const { data: volData, isLoading: volLoading, error: volError } = useVolume(days);
 
   const totalPnl = perfData?.summary?.total_pnl ?? 0;
   const totalTrades = perfData?.summary?.total_trades ?? 0;
@@ -140,6 +140,7 @@ export default function ReportsPage() {
     volData?.buySellRatio?.find((s) => s.side === 2)?.total_volume ?? 0;
 
   const isLoading = perfLoading || execLoading || volLoading;
+  const hasError = !!(perfError || execError || volError);
 
   // Responsive chart height
   const chartHeightLg = 280;
@@ -167,7 +168,7 @@ export default function ReportsPage() {
   );
 
   // Show empty state when no data exists
-  if (!isLoading && totalTrades === 0 && totalOrders === 0) {
+  if ((!isLoading && totalTrades === 0 && totalOrders === 0) || hasError) {
     return (
       <div className="space-y-4 sm:space-y-6">
         <PageHeader title="Reports" actions={periodSelector} />
