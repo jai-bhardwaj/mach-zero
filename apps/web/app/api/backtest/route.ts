@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
         strategy,
         symbolName ?? "BTCUSDT",
         numTrades ?? 500,
-        input // use input to avoid unused var
       );
       return NextResponse.json(results);
     }
@@ -84,7 +83,6 @@ function generateSimulatedResults(
   strategy: string,
   symbol: string,
   numTrades: number,
-  _input: string
 ) {
   const trades: Array<{
     timestamp: number;

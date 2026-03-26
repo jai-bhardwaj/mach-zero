@@ -15,7 +15,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
 
 export default function StrategiesPage() {
-  if (typeof document !== 'undefined') document.title = 'Strategies | Mach-Zero';
   const [strategies, setStrategies] = useState<StrategyConfig[]>([]);
   const [pools, setPools] = useState<CapitalPool[]>([]);
   const [accounts, setAccounts] = useState<{ id: string; name: string; venue: string }[]>([]);

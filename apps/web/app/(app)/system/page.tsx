@@ -23,7 +23,6 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 export default function SystemPage() {
-  if (typeof document !== 'undefined') document.title = 'System | Mach-Zero';
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
 

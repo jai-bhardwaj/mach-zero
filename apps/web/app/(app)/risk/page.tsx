@@ -10,7 +10,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import type { SortingState } from "@/types";
 
 export default function RiskPage() {
-  if (typeof document !== 'undefined') document.title = 'Risk | Mach-Zero';
   const [sorting, setSorting] = useState<SortingState[]>([
     { id: "timestamp", desc: true },
   ]);

@@ -580,7 +580,6 @@ function TradesPageSkeleton() {
 }
 
 export default function TradesPage() {
-  if (typeof document !== 'undefined') document.title = 'Trades | Mach-Zero';
   return (
     <Suspense fallback={<TradesPageSkeleton />}>
       <TradesPageInner />
