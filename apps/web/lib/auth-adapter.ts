@@ -35,10 +35,19 @@ const superAdminEmails = new Set(
 
 export const authAdapter: Adapter = {
   async createUser(data) {
-    const defaultTenant = await prisma.tenant.findFirst({
+    // Find or create the default tenant (auto-provisions on first sign-up)
+    let defaultTenant = await prisma.tenant.findFirst({
       where: { slug: "default" },
     });
-    if (!defaultTenant) throw new Error("No default tenant found");
+    if (!defaultTenant) {
+      defaultTenant = await prisma.tenant.create({
+        data: {
+          name: "Default",
+          slug: "default",
+          active: true,
+        },
+      });
+    }
 
     const isSuperAdmin = superAdminEmails.has(data.email.toLowerCase());
 
