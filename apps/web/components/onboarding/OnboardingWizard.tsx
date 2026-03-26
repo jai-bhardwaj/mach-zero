@@ -124,7 +124,7 @@ export function OnboardingWizard({ templates }: Props) {
         return;
       }
       // Refresh session to pick up new tenantId and role
-      await updateSession();
+      await updateSession({ refresh: true });
       setStep(2);
     } catch {
       setError("Something went wrong. Please try again.");
@@ -207,7 +207,7 @@ export function OnboardingWizard({ templates }: Props) {
   const completeOnboarding = async () => {
     try {
       await fetch("/api/onboarding/complete", { method: "POST" });
-      await updateSession();
+      await updateSession({ refresh: true });
       setStep(4);
       // Hard navigation forces server to read the fresh JWT cookie
       // (router.push uses client-side cache which has the stale token)

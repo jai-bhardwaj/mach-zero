@@ -127,10 +127,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
 
-    async jwt({ token }) {
-      // Always refresh from DB to ensure tenantId/role are current
-      // (critical after onboarding when user moves from default → new tenant)
-      if (token.email) {
+    async jwt({ token, trigger, session: updateData }) {
+      // Refresh from DB on:
+      // 1. signIn — first token creation
+      // 2. update with { refresh: true } — explicit session refresh from client
+      // 3. missing role — token was created before enrichment
+      const shouldRefresh =
+        trigger === "signIn" ||
+        (trigger === "update" && (updateData as Record<string, unknown>)?.refresh === true) ||
+        !token.role;
+
+      if (shouldRefresh && token.email) {
         try {
           const localUser = await prisma.user.findUnique({
             where: { email: token.email },
