@@ -14,12 +14,19 @@ export default async function AppLayout({
   const session = await auth();
   if (session?.user) {
     const u = session.user as unknown as Record<string, unknown>;
-    const dbUser = await prisma.user.findUnique({
-      where: { id: u.id as string },
-      select: { onboardingComplete: true },
-    });
-    if (dbUser && !dbUser.onboardingComplete) {
-      redirect("/onboarding");
+    const userId = u.id as string | undefined;
+    if (userId) {
+      try {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { onboardingComplete: true },
+        });
+        if (dbUser && !dbUser.onboardingComplete) {
+          redirect("/onboarding");
+        }
+      } catch {
+        // DB query failed — continue without redirect
+      }
     }
   }
 
