@@ -4,6 +4,7 @@ import type { StrategyTemplate } from "@/types";
 import { MarketplaceClient } from "@/components/marketplace/MarketplaceClient";
 import { PageHeader } from "@/components/ui/page-header";
 
+export const metadata = { title: "Marketplace | Mach-Zero" };
 export default async function MarketplacePage() {
   await requirePageAuth();
 

@@ -51,6 +51,7 @@ function maskConfig(
   return result;
 }
 
+export const metadata = { title: "Accounts | Mach-Zero" };
 export default async function AccountsPage() {
   const session = await requirePageAuth();
 

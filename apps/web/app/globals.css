@@ -240,6 +240,15 @@
   100% { transform: translateX(400%); }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0.6; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+main {
+  animation: fadeIn 150ms ease-out;
+}
+
 /* ── Base styles ───────────────────────────────────────────── */
 @layer base {
   * {

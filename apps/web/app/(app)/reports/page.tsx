@@ -79,6 +79,7 @@ function useIsMobile() {
 }
 
 export default function ReportsPage() {
+  if (typeof document !== 'undefined') document.title = 'Reports | Mach-Zero';
   const [period, setPeriod] = useState("7d");
   const days = period === "1d" ? 1 : period === "7d" ? 7 : 30;
   const isMobile = useIsMobile();

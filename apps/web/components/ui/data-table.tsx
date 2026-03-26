@@ -179,7 +179,7 @@ export function DataTable<TData>({
                   key={row.id}
                   className={cn(
                     onRowClick && "cursor-pointer",
-                    focusedRowIndex === rowIndex && "bg-muted"
+                    focusedRowIndex === rowIndex && "bg-muted transition-colors duration-100"
                   )}
                   onClick={() => onRowClick?.(row.original)}
                   onKeyDown={

@@ -30,7 +30,7 @@ export function MarketplaceTemplateCard({
 
   return (
     <Card
-      className="cursor-pointer transition-colors hover:border-zinc-600"
+      className="cursor-pointer"
       onClick={() => onViewDetails(template)}
     >
       <CardContent className="p-4">

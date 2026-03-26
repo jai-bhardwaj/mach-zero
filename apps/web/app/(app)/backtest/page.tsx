@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { BacktestClient } from "@/components/backtest/BacktestClient";
 
+export const metadata = { title: "Backtest | Mach-Zero" };
 export default function BacktestPage() {
   return (
     <Suspense

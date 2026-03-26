@@ -3,6 +3,7 @@ import { requirePageAuth } from "@/lib/require-auth";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
 
+export const metadata = { title: "Workspaces | Mach-Zero" };
 export default async function WorkspacesPage() {
   const session = await requirePageAuth();
 

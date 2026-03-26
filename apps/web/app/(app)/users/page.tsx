@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requirePageAuth } from "@/lib/require-auth";
 import { UsersClient } from "@/components/accounts/UsersClient";
 
+export const metadata = { title: "Users | Mach-Zero" };
 export default async function UsersPage() {
   const session = await requirePageAuth();
 

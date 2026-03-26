@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<
   AccountStatusType,
   { label: string; dotColor: "green" | "yellow" | "red" | "blue"; pulse?: boolean }
 > = {
-  connected: { label: "Connected", dotColor: "green" },
+  connected: { label: "Connected", dotColor: "green", pulse: true },
   disconnected: { label: "Disconnected", dotColor: "yellow" },
   error: { label: "Error", dotColor: "red" },
   validating: { label: "Validating", dotColor: "blue", pulse: true },

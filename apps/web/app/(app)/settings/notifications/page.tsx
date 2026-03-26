@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { NotificationsClient } from "@/components/notifications/NotificationsClient";
 
+export const metadata = { title: "Notifications | Mach-Zero" };
 export default function NotificationsPage() {
   return (
     <Suspense

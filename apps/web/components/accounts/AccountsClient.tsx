@@ -141,7 +141,7 @@ export function AccountsClient({ initialAccounts }: Props) {
             <div
               key={acct.id}
               className={cn(
-                "rounded-lg border border-border/50 p-4 space-y-3 transition-colors",
+                "rounded-lg border border-border/50 p-4 space-y-3 transition-all duration-150 hover:border-border hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)]",
                 !acct.active && "opacity-60"
               )}
             >

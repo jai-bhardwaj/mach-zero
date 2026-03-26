@@ -3,6 +3,8 @@ import { requirePageAuth } from "@/lib/require-auth";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 import { PageHeader } from "@/components/ui/page-header";
 
+export const metadata = { title: "Dashboard | Mach-Zero" };
+
 export default async function DashboardPage() {
   const session = await requirePageAuth();
 
