@@ -1,0 +1,25 @@
+[Unit]
+Description=Mach-Zero Binance REST Gateway
+After=network.target mach-zero-engine.service
+Wants=mach-zero-engine.service
+
+[Service]
+Type=simple
+User=mach-zero
+WorkingDirectory=/opt/mach-zero
+ExecStart=/opt/mach-zero/bin/binance_rest_gateway
+Restart=on-failure
+RestartSec=5
+
+# Credentials — loaded from env file
+EnvironmentFile=/opt/mach-zero/.env
+Environment=AERON_DIR=/dev/shm/aeron
+Environment=MACH_ZERO_SIMULATED=1
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/dev/shm /opt/mach-zero/logs
+
+[Install]
+WantedBy=multi-user.target

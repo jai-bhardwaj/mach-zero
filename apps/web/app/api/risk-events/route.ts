@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryPaginated, buildOrderBy } from "@/lib/questdb";
+import { queryPaginated, buildOrderBy, QuestDBUnavailableError } from "@/lib/questdb";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
 import {
   validateTradingMode,
@@ -55,7 +55,13 @@ export async function GET(request: NextRequest) {
       orderBy
     );
     return NextResponse.json(result);
-  } catch {
+  } catch (err) {
+    if (err instanceof QuestDBUnavailableError) {
+      return NextResponse.json(
+        { error: "Trading data service is not available", data: [], total: 0, offset: 0, limit },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to query risk events" },
       { status: 500 }

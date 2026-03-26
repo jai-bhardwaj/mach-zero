@@ -1,0 +1,25 @@
+[Unit]
+Description=Mach-Zero Trading Engine
+After=network.target
+Wants=mach-zero-questdb.service
+
+[Service]
+Type=simple
+User=mach-zero
+WorkingDirectory=/opt/mach-zero
+ExecStart=/opt/mach-zero/bin/mach_zero_engine
+Restart=on-failure
+RestartSec=5
+Environment=AERON_DIR=/dev/shm/aeron
+
+# Resource limits
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/dev/shm /opt/mach-zero/logs
+
+[Install]
+WantedBy=multi-user.target

@@ -12,15 +12,35 @@ interface QuestDBResponse {
   query: string;
 }
 
+export class QuestDBUnavailableError extends Error {
+  constructor(message = "QuestDB is not available") {
+    super(message);
+    this.name = "QuestDBUnavailableError";
+  }
+}
+
 export async function queryQuestDB(sql: string): Promise<QuestDBResponse> {
   const url = `${QUESTDB_URL}/exec?query=${encodeURIComponent(sql)}`;
-  const res = await fetch(url, { cache: "no-store" });
 
-  if (!res.ok) {
-    throw new Error(`QuestDB query failed: ${res.status} ${res.statusText}`);
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      throw new Error(`QuestDB query failed: ${res.status} ${res.statusText}`);
+    }
+
+    return res.json();
+  } catch (err) {
+    if (err instanceof TypeError || (err instanceof DOMException && err.name === "TimeoutError")) {
+      throw new QuestDBUnavailableError(
+        "QuestDB is not running. Start it with: docker compose up -d questdb"
+      );
+    }
+    throw err;
   }
-
-  return res.json();
 }
 
 // Convert QuestDB dataset rows into objects keyed by column name

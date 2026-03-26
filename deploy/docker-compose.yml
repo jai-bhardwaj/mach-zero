@@ -1,0 +1,66 @@
+# Mach-Zero — Full Stack Deployment
+# Run: docker compose up -d
+# Requires: .env file with DATABASE_URL, CREDENTIAL_ENCRYPTION_KEY
+
+version: "3.9"
+
+services:
+  # =========================================================================
+  # QuestDB — time-series database for trades, orders, risk events
+  # =========================================================================
+  questdb:
+    image: questdb/questdb:8.1.1
+    container_name: mach-zero-questdb
+    restart: unless-stopped
+    ports:
+      - "9000:9000"   # Web console + REST API
+      - "9009:9009"   # InfluxDB line protocol (ILP) for writes
+      - "8812:8812"   # PostgreSQL wire protocol
+    volumes:
+      - questdb-data:/var/lib/questdb
+    environment:
+      - QDB_TELEMETRY_ENABLED=false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/exec?query=select%201"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =========================================================================
+  # Python Bridge — shared memory reader + WebSocket broadcaster
+  # =========================================================================
+  bridge:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.bridge
+    container_name: mach-zero-bridge
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    depends_on:
+      questdb:
+        condition: service_healthy
+    environment:
+      - QUESTDB_URL=http://questdb:9000
+
+  # =========================================================================
+  # Aeron Media Driver — IPC transport for C++ engine
+  # =========================================================================
+  aeron-driver:
+    image: eclipse-temurin:21-jre
+    container_name: mach-zero-aeron-driver
+    restart: unless-stopped
+    command: >
+      java -cp /opt/aeron/aeron-all.jar
+      io.aeron.driver.MediaDriver
+      -Daeron.dir=/dev/shm/aeron
+      -Daeron.threading.mode=SHARED
+    volumes:
+      - aeron-shm:/dev/shm/aeron
+      - ./aeron-all.jar:/opt/aeron/aeron-all.jar:ro
+    tmpfs:
+      - /dev/shm:rw,size=128m
+
+volumes:
+  questdb-data:
+  aeron-shm:

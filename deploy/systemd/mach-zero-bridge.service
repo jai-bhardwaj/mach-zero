@@ -1,0 +1,15 @@
+[Unit]
+Description=Mach-Zero Python Bridge (SHM → WebSocket)
+After=network.target mach-zero-engine.service
+
+[Service]
+Type=simple
+User=mach-zero
+WorkingDirectory=/opt/mach-zero/bridge
+ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 3002 --log-level info
+Restart=on-failure
+RestartSec=5
+Environment=QUESTDB_URL=http://localhost:9000
+
+[Install]
+WantedBy=multi-user.target
