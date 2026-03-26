@@ -57,33 +57,52 @@ export default async function AccountsPage() {
   const where =
     session.role === "SUPER_ADMIN" ? {} : { tenantId: session.tenantId };
 
-  const accounts = await prisma.tradingAccount.findMany({
-    where,
-    include: {
-      tenant: { select: { name: true } },
-      _count: { select: { strategies: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  let accounts: Awaited<ReturnType<typeof prisma.tradingAccount.findMany<{
+    where: typeof where;
+    include: { tenant: { select: { name: true } }; _count: { select: { strategies: true } } };
+    orderBy: { createdAt: "desc" };
+  }>>>;
+  try {
+    accounts = await prisma.tradingAccount.findMany({
+      where,
+      include: {
+        tenant: { select: { name: true } },
+        _count: { select: { strategies: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch {
+    accounts = [];
+  }
 
   // Serialize for client: mask credentials, cast types
-  const serialized: TradingAccountWithRelations[] = accounts.map((acct) => ({
-    id: acct.id,
-    tenantId: acct.tenantId,
-    name: acct.name,
-    venue: acct.venue,
-    segments: acct.segments,
-    active: acct.active,
-    config: maskConfig(acct.config as Record<string, unknown> | null),
-    status: acct.status as AccountStatus,
-    statusMessage: acct.statusMessage,
-    testnet: acct.testnet,
-    lastCheckedAt: acct.lastCheckedAt?.toISOString() ?? null,
-    permissions: acct.permissions,
-    createdAt: acct.createdAt.toISOString(),
-    _count: { strategies: acct._count.strategies },
-    tenant: acct.tenant,
-  }));
+  const serialized: TradingAccountWithRelations[] = accounts.map((acct) => {
+    let maskedConfig: Record<string, unknown> | null = null;
+    try {
+      maskedConfig = maskConfig(acct.config as Record<string, unknown> | null);
+    } catch {
+      // If decryption fails (missing key), show empty credentials
+      maskedConfig = { credentials: {} };
+    }
+
+    return {
+      id: acct.id,
+      tenantId: acct.tenantId,
+      name: acct.name,
+      venue: acct.venue,
+      segments: acct.segments,
+      active: acct.active,
+      config: maskedConfig,
+      status: acct.status as AccountStatus,
+      statusMessage: acct.statusMessage,
+      testnet: acct.testnet,
+      lastCheckedAt: acct.lastCheckedAt?.toISOString() ?? null,
+      permissions: acct.permissions,
+      createdAt: acct.createdAt.toISOString(),
+      _count: { strategies: acct._count.strategies },
+      tenant: acct.tenant,
+    };
+  });
 
   return (
     <div className="space-y-4 sm:space-y-6">
