@@ -209,11 +209,14 @@ export function OnboardingWizard({ templates }: Props) {
       await fetch("/api/onboarding/complete", { method: "POST" });
       await updateSession({ refresh: true });
       setStep(4);
-      // Hard navigation forces server to read the fresh JWT cookie
-      // (router.push uses client-side cache which has the stale token)
+
+      // After success animation plays (1.8s), fade out the whole screen then navigate
       setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1500);
+        document.body.style.animation = "screenFadeOut 400ms ease-in forwards";
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 350);
+      }, 1800);
     } catch {
       setError("Failed to complete onboarding");
     }
@@ -284,7 +287,7 @@ export function OnboardingWizard({ templates }: Props) {
 
       {/* Step 1: Create workspace */}
       {step === 1 && (
-        <Card>
+        <Card className="animate-in fade-in slide-in-from-bottom-3 duration-300">
           <CardContent className="space-y-4 p-6">
             <div>
               <h2 className="text-base font-semibold">
@@ -348,7 +351,7 @@ export function OnboardingWizard({ templates }: Props) {
 
       {/* Step 2: Connect exchange */}
       {step === 2 && (
-        <Card>
+        <Card className="animate-in fade-in slide-in-from-right-4 duration-300">
           <CardContent className="space-y-4 p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -539,7 +542,7 @@ export function OnboardingWizard({ templates }: Props) {
 
       {/* Step 3: Pick a strategy */}
       {step === 3 && (
-        <Card>
+        <Card className="animate-in fade-in slide-in-from-right-4 duration-300">
           <CardContent className="space-y-4 p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -637,24 +640,46 @@ export function OnboardingWizard({ templates }: Props) {
         </Card>
       )}
 
-      {/* Step 4: Done */}
+      {/* Step 4: Done — animated success → fade out */}
       {step === 4 && (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-600">
-              <Check className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold">
-                Your workspace is ready
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Taking you to the dashboard...
-              </p>
-            </div>
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </CardContent>
-        </Card>
+        <div className="animate-in fade-in zoom-in-95 duration-300">
+          <Card className="overflow-hidden">
+            <CardContent className="flex flex-col items-center gap-5 p-10 text-center">
+              {/* Animated checkmark circle */}
+              <div className="relative">
+                <div className="animate-in zoom-in-0 duration-500 flex h-20 w-20 items-center justify-center rounded-full bg-green-600 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
+                  <Check className="h-10 w-10 text-white animate-in fade-in slide-in-from-bottom-2 duration-300 delay-200" />
+                </div>
+                {/* Ripple effect */}
+                <div className="absolute inset-0 rounded-full bg-green-500/20 animate-ping" style={{ animationDuration: '1.5s', animationIterationCount: '2' }} />
+              </div>
+
+              <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-300 space-y-2">
+                <h2 className="text-xl font-semibold">
+                  You&apos;re all set! 🚀
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Your workspace <span className="font-medium text-foreground">{workspaceName || "is"}</span> is ready.
+                  <br />
+                  Launching your dashboard...
+                </p>
+              </div>
+
+              {/* Animated progress bar */}
+              <div className="w-full max-w-xs">
+                <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-primary transition-all ease-out"
+                    style={{
+                      width: '100%',
+                      animation: 'progressFill 1.5s ease-out forwards',
+                    }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
