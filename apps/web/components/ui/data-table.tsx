@@ -148,7 +148,7 @@ export function DataTable<TData>({
                           onMouseDown={header.getResizeHandler()}
                           onTouchStart={header.getResizeHandler()}
                           className={cn(
-                            "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
+                            "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none transition-colors duration-100",
                             header.column.getIsResizing()
                               ? "bg-accent"
                               : "bg-transparent hover:bg-border"
@@ -178,8 +178,9 @@ export function DataTable<TData>({
                 <TableRow
                   key={row.id}
                   className={cn(
-                    onRowClick && "cursor-pointer",
-                    focusedRowIndex === rowIndex && "bg-muted transition-colors duration-100"
+                    "transition-colors duration-100",
+                    onRowClick && "cursor-pointer hover:bg-muted/50 active:bg-muted/70",
+                    focusedRowIndex === rowIndex && "bg-muted"
                   )}
                   onClick={() => onRowClick?.(row.original)}
                   onKeyDown={

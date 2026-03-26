@@ -96,7 +96,7 @@ export function GettingStarted({ hasAccounts, hasStrategies }: Props) {
             <Link
               key={step.key}
               href={step.href}
-              className="block rounded-md px-2 py-2 -mx-2 hover:bg-muted/50 transition-colors"
+              className="block rounded-md px-2 py-2 -mx-2 hover:bg-muted/50 active:bg-muted/70 transition-all duration-100"
             >
               {content}
             </Link>

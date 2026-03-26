@@ -19,10 +19,10 @@ interface Props {
 }
 
 const STATUS_DOT_COLOR: Record<StrategyStatus, string> = {
-  RUNNING: "bg-green-400",
+  RUNNING: "bg-green-400 animate-pulse",
   PAUSED: "bg-yellow-400",
   STOPPED: "bg-zinc-400",
-  PENDING: "bg-blue-400",
+  PENDING: "bg-blue-400 animate-[pulse_2s_ease-in-out_infinite]",
 };
 
 export function StrategyCard({

@@ -143,7 +143,7 @@ export function Sidebar() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-[5px] text-sm transition-colors",
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-[5px] text-sm transition-all duration-100",
                       active
                         ? "border-l-2 border-primary bg-transparent text-sidebar-foreground font-medium pl-[8px]"
                         : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground border-l-2 border-transparent pl-[8px]"
