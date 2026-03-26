@@ -9,30 +9,29 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const days = validateDays(Number(params.get("days") ?? "7"));
+  const tid = session.tenantId?.replace(/'/g, "") ?? "";
+  const tenantFilter = tid ? `AND tenant_id = '${tid}'` : "";
 
   try {
     const [statusResult, rejectResult, orderStatsResult] = await Promise.all([
-      // Order status breakdown
       queryQuestDB(`
         SELECT status, COUNT(*) as count
         FROM orders
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
         GROUP BY status
         ORDER BY count DESC
       `),
-      // Risk rejection reasons breakdown
       queryQuestDB(`
         SELECT reason, COUNT(*) as count
         FROM risk_events
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
         GROUP BY reason
         ORDER BY count DESC
       `),
-      // Aggregate order stats
       queryQuestDB(`
         SELECT COUNT(*) as total_orders
         FROM orders
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
       `),
     ]);
 

@@ -9,34 +9,33 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const days = validateDays(Number(params.get("days") ?? "7"));
+  const tid = session.tenantId?.replace(/'/g, "") ?? "";
+  const tenantFilter = tid ? `AND tenant_id = '${tid}'` : "";
 
   try {
     const [bySymbolResult, hourlyResult, sideResult] = await Promise.all([
-      // Volume by symbol
       queryQuestDB(`
         SELECT symbol_id, COUNT(*) as trade_count,
                SUM(price * quantity) as total_volume
         FROM trades
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
         GROUP BY symbol_id
         ORDER BY total_volume DESC
       `),
-      // Hourly trade activity
       queryQuestDB(`
         SELECT timestamp, COUNT(*) as trade_count,
                SUM(price * quantity) as volume
         FROM trades
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
         SAMPLE BY 1h ALIGN TO CALENDAR
         ORDER BY timestamp
       `),
-      // Buy vs sell breakdown
       queryQuestDB(`
         SELECT side, COUNT(*) as count,
                SUM(quantity) as total_qty,
                SUM(price * quantity) as total_volume
         FROM trades
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
         GROUP BY side
       `),
     ]);

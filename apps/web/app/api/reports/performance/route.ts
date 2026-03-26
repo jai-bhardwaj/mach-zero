@@ -12,20 +12,20 @@ export async function GET(request: NextRequest) {
 
   const daysMap: Record<string, number> = { "1d": 1, "7d": 7, "30d": 30 };
   const days = validateDays(daysMap[period] ?? 7);
+  const tid = session.tenantId?.replace(/'/g, "") ?? "";
+  const tenantFilter = tid ? `AND tenant_id = '${tid}'` : "";
 
   try {
     const [dailyPnlResult, summaryResult, sideResult] = await Promise.all([
-      // Daily P&L breakdown
       queryQuestDB(`
         SELECT timestamp,
                SUM(CASE WHEN side = 1 THEN price * quantity ELSE -price * quantity END) as daily_pnl,
                COUNT(*) as trade_count
         FROM trades
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
         SAMPLE BY 1d ALIGN TO CALENDAR
         ORDER BY timestamp
       `),
-      // Summary stats
       queryQuestDB(`
         SELECT
           SUM(CASE WHEN side = 1 THEN price * quantity ELSE -price * quantity END) as total_pnl,
@@ -34,15 +34,14 @@ export async function GET(request: NextRequest) {
           MAX(price * quantity) as max_trade_value,
           MIN(price * quantity) as min_trade_value
         FROM trades
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
       `),
-      // Side breakdown (buy/sell counts)
       queryQuestDB(`
         SELECT side, COUNT(*) as count,
                SUM(price * quantity) as total_value,
                AVG(price * quantity) as avg_value
         FROM trades
-        WHERE timestamp > dateadd('d', -${days}, now())
+        WHERE timestamp > dateadd('d', -${days}, now()) ${tenantFilter}
         GROUP BY side
       `),
     ]);

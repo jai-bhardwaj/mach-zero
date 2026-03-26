@@ -3,6 +3,7 @@
 
 -- Trades table: all market trades from gateways
 CREATE TABLE IF NOT EXISTS trades (
+    tenant_id STRING,
     symbol_id LONG,
     venue INT,
     price DOUBLE,
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS trades (
 
 -- Orders table: all order lifecycle events
 CREATE TABLE IF NOT EXISTS orders (
+    tenant_id STRING,
     symbol_id LONG,
     order_id LONG,
     side INT,
@@ -28,6 +30,7 @@ CREATE TABLE IF NOT EXISTS orders (
 
 -- Risk events: rejections and kill switch activations
 CREATE TABLE IF NOT EXISTS risk_events (
+    tenant_id STRING,
     symbol_id LONG,
     order_id LONG,
     reason SYMBOL,
@@ -40,6 +43,6 @@ CREATE TABLE IF NOT EXISTS risk_events (
 -- QuestDB does not support ALTER TABLE ADD COLUMN on WAL tables.
 -- 1. RENAME TABLE trades TO trades_backup;
 -- 2. CREATE TABLE trades (...new schema above...);
--- 3. INSERT INTO trades SELECT symbol_id, venue, price, quantity, side, '', 'MOCK', timestamp FROM trades_backup;
+-- 3. INSERT INTO trades SELECT 'default', symbol_id, venue, price, quantity, side, strategy_id, trading_mode, timestamp FROM trades_backup;
 -- 4. DROP TABLE trades_backup;
 -- Repeat for orders and risk_events.

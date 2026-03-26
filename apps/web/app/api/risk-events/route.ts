@@ -24,6 +24,11 @@ export async function GET(request: NextRequest) {
 
   const conditions: string[] = [];
 
+  // Tenant isolation
+  if (session.tenantId) {
+    conditions.push(`tenant_id = '${session.tenantId.replace(/'/g, "")}'`);
+  }
+
   const parsedSymbolId = symbolId ? Number(symbolId) : NaN;
   if (Number.isFinite(parsedSymbolId)) conditions.push(`symbol_id = ${parsedSymbolId}`);
   const validReason = reason ? validateRiskReason(reason) : null;
