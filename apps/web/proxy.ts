@@ -8,7 +8,7 @@ export default auth;
 
 export const config = {
   matcher: [
-    // Protect all routes EXCEPT: login, verify-request, api/auth, api/health, static assets, _next
-    "/((?!login|verify-request|api/auth|api/health|_next/static|_next/image|favicon.ico).*)",
+    // Protect all routes EXCEPT: login, verify-request, onboarding, api/auth, api/health, static assets, _next
+    "/((?!login|verify-request|onboarding|api/auth|api/health|_next/static|_next/image|favicon.ico).*)",
   ],
 };
