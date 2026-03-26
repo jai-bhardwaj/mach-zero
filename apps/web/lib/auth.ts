@@ -127,18 +127,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
 
-    async jwt({ token, trigger }) {
-      // On sign-in, session update, or when role is missing, enrich from local DB
-      if (trigger === "signIn" || trigger === "update" || !token.role) {
-        const localUser = await prisma.user.findUnique({
-          where: { email: token.email! },
-          include: { tenant: true },
-        });
-        if (localUser) {
-          token.role = localUser.role;
-          token.tenantId = localUser.tenantId;
-          token.tenantName = localUser.tenant.name;
-          token.onboardingComplete = localUser.onboardingComplete;
+    async jwt({ token }) {
+      // Always refresh from DB to ensure tenantId/role are current
+      // (critical after onboarding when user moves from default → new tenant)
+      if (token.email) {
+        try {
+          const localUser = await prisma.user.findUnique({
+            where: { email: token.email },
+            include: { tenant: true },
+          });
+          if (localUser) {
+            token.sub = localUser.id;
+            token.role = localUser.role;
+            token.tenantId = localUser.tenantId;
+            token.tenantName = localUser.tenant.name;
+            token.onboardingComplete = localUser.onboardingComplete;
+          }
+        } catch {
+          // DB unavailable — use cached token values
         }
       }
       return token;
