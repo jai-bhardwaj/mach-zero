@@ -209,8 +209,11 @@ export function OnboardingWizard({ templates }: Props) {
       await fetch("/api/onboarding/complete", { method: "POST" });
       await updateSession();
       setStep(4);
-      // Small delay so user sees the success state
-      setTimeout(() => router.push("/dashboard"), 1500);
+      // Hard navigation forces server to read the fresh JWT cookie
+      // (router.push uses client-side cache which has the stale token)
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1500);
     } catch {
       setError("Failed to complete onboarding");
     }
