@@ -24,6 +24,7 @@ jobs:
               - 'core/**'
               - 'common/**'
               - 'gateways/**'
+              - 'apps/gateways/**'
               - 'CMakeLists.txt'
               - 'cmake/**'
             web:
@@ -44,7 +45,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libssl-dev zlib1g-dev openjdk-17-jdk-headless
+          sudo apt-get install -y build-essential cmake libssl-dev zlib1g-dev libcurl4-openssl-dev libpq-dev openjdk-17-jdk-headless
 
       - name: Cache CMake build
         uses: actions/cache@v4

@@ -13,6 +13,11 @@ vi.mock("@/lib/require-auth", () => ({
   isAuthError: vi.fn().mockReturnValue(false),
 }));
 
+// Mock alert evaluator
+vi.mock("@/lib/alert-evaluator", () => ({
+  evaluateAlerts: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock Prisma
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -22,6 +27,9 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+    },
+    strategyConfigHistory: {
+      create: vi.fn().mockResolvedValue({}),
     },
     capitalAllocation: {
       delete: vi.fn(),
