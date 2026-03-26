@@ -19,9 +19,9 @@ const steps = [
   },
   {
     key: "strategies",
-    title: "Create a Strategy",
-    description: "Configure an algorithmic trading strategy.",
-    href: "/strategies",
+    title: "Pick a Strategy",
+    description: "Browse pre-built strategies in the Marketplace, or create a custom one.",
+    href: "/marketplace",
   },
   {
     key: "backtest",

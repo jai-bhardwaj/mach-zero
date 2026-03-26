@@ -165,6 +165,19 @@ export function MarketplaceClient({ initialTemplates, accounts }: Props) {
               onViewDetails={setSelectedTemplate}
             />
           ))}
+          {/* Create Custom Strategy CTA */}
+          <a
+            href="/strategies"
+            className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 bg-card/30 p-6 text-center transition-colors hover:bg-muted/50 hover:border-border min-h-[200px]"
+          >
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <svg xmlns="http://www.w3.org/2000/svg" className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+            </div>
+            <p className="text-sm font-medium text-foreground">Create Custom Strategy</p>
+            <p className="mt-1 text-[11px] text-muted-foreground max-w-[200px]">
+              Build your own strategy with custom parameters and risk limits.
+            </p>
+          </a>
         </div>
       )}
 
