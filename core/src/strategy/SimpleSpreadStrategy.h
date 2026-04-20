@@ -16,6 +16,7 @@ namespace mach_zero::strategy {
 class SimpleSpreadStrategy : public Strategy {
 public:
     struct Config {
+        uint32_t tenantId = 1;              // Default tenant for single-tenant legacy deploys
         uint64_t symbolId = 1;
         int64_t spreadOffset = 100000000LL; // 1.0 in fixed-point (8 decimals)
         uint64_t orderQuantity = 100000000ULL; // 1.0
@@ -71,7 +72,8 @@ private:
             .venue(config_.venue)
             .timestamp(static_cast<uint64_t>(
                 std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count()));
+                    std::chrono::system_clock::now().time_since_epoch()).count()))
+            .tenantId(config_.tenantId);
         emitOrder(buf, OrderRequest::sbeBlockAndHeaderLength());
     }
 

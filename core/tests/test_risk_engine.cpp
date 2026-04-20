@@ -351,6 +351,74 @@ TEST(RiskEngine, CreateRejectMessage) {
     EXPECT_EQ(reject.tenantId(), TEST_TENANT_ID);
 }
 
+// --- InvalidTenant entry-check tests ---
+
+TEST(RiskEngineEntryCheck, RejectsTenantIdZero) {
+    RiskEngine engine;
+    char buf[256];
+    makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/0);
+    auto order = decodeOrder(buf, sizeof(buf));
+
+    auto result = engine.validate(order);
+    EXPECT_FALSE(result.passed);
+    EXPECT_EQ(result.reason, RejectReason::InvalidTenant);
+}
+
+TEST(RiskEngineEntryCheck, RejectsTenantIdAtMax) {
+    RiskEngine engine;
+    char buf[256];
+    makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/RiskState::MAX_TENANTS);
+    auto order = decodeOrder(buf, sizeof(buf));
+
+    auto result = engine.validate(order);
+    EXPECT_FALSE(result.passed);
+    EXPECT_EQ(result.reason, RejectReason::InvalidTenant);
+}
+
+TEST(RiskEngineEntryCheck, RejectsUnknownTenantWhenRegistrySet) {
+    TenantLimitsRegistry reg;
+    TenantLimits lim;
+    reg.set(1, lim);  // Only tenant 1 known
+
+    RiskEngine engine;
+    engine.setLimitsRegistry(&reg);
+
+    // Tenant 1 passes entry check
+    char buf1[256];
+    makeOrder(buf1, sizeof(buf1), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/1);
+    auto order1 = decodeOrder(buf1, sizeof(buf1));
+    EXPECT_TRUE(engine.validate(order1).passed);
+
+    // Tenant 7 not in registry — rejected as InvalidTenant
+    char buf7[256];
+    makeOrder(buf7, sizeof(buf7), 2, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/7);
+    auto order7 = decodeOrder(buf7, sizeof(buf7));
+    auto result = engine.validate(order7);
+    EXPECT_FALSE(result.passed);
+    EXPECT_EQ(result.reason, RejectReason::InvalidTenant);
+}
+
+TEST(RiskEngineEntryCheck, RejectCarriesTenantId) {
+    RiskEngine engine;
+    char buf[256];
+    makeOrder(buf, sizeof(buf), 42, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/7);
+    auto order = decodeOrder(buf, sizeof(buf));
+
+    char rejectBuf[256];
+    engine.createReject(order, RejectReason::PriceBand, rejectBuf, sizeof(rejectBuf));
+
+    MessageHeader hdr(rejectBuf, sizeof(rejectBuf), MessageHeader::sbeSchemaVersion());
+    OrderReject reject;
+    reject.wrapForDecode(rejectBuf, MessageHeader::encodedLength(),
+                         hdr.blockLength(), hdr.version(), sizeof(rejectBuf));
+    EXPECT_EQ(reject.tenantId(), 7u);
+}
+
 // --- Benchmark ---
 
 TEST(RiskEngine, BenchmarkValidation) {

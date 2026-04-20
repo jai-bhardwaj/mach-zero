@@ -2,6 +2,7 @@
 
 #include "RiskCheck.h"
 #include "RiskState.h"
+#include "TenantLimits.h"
 #include "KillSwitch.h"
 #include "PriceBandCheck.h"
 #include "PositionLimitCheck.h"
@@ -40,6 +41,20 @@ public:
     // Validate an order against all risk checks.
     // Returns true if passed, false if rejected (sets rejectReason).
     RiskResult validate(const OrderRequest& order) {
+        // Entry check: tenant must be in valid range.
+        // tenantId=0 is reserved for the global admin kill-switch channel;
+        // production orders must have engineId >= 1 && < MAX_TENANTS.
+        uint32_t tenantId = order.tenantId();
+        if (tenantId == 0 || tenantId >= RiskState::MAX_TENANTS) {
+            return {false, RejectReason::InvalidTenant};
+        }
+        // If a limits registry is configured, reject unknown tenants —
+        // fail-closed so a new Postgres tenant that hasn't landed in
+        // limits.json yet can't place unlimited orders.
+        if (limits_ && !limits_->isKnown(tenantId)) {
+            return {false, RejectReason::InvalidTenant};
+        }
+
         for (const auto& check : checks_) {
             auto result = check->validate(order, *state_);
             if (!result.passed) {
@@ -47,9 +62,14 @@ public:
             }
         }
         // Update state for tracking
-        state_->incrementOrderCount(order.tenantId(), order.symbolId());
+        state_->incrementOrderCount(tenantId, order.symbolId());
         return {true, RejectReason::None};
     }
+
+    // Wire up the per-tenant limits registry. Called at engine startup
+    // after loading tenant_limits.json. Tests without a registry fall
+    // back to the compile-time defaults in each RiskCheck.
+    void setLimitsRegistry(const TenantLimitsRegistry* reg) { limits_ = reg; }
 
     // Create an SBE OrderReject message. tenantId is copied from the
     // originating order so the reject routes back to the correct tenant's
@@ -90,6 +110,7 @@ private:
     std::vector<std::shared_ptr<RiskCheck>> checks_;
     std::shared_ptr<KillSwitch> killSwitch_;
     std::unique_ptr<RiskState> state_;
+    const TenantLimitsRegistry* limits_ = nullptr;  // Optional, set at startup
 };
 
 } // namespace mach_zero::risk

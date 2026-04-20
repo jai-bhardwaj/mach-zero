@@ -2,6 +2,7 @@
 #include <strategy/SimpleSpreadStrategy.h>
 #include <strategy/MomentumStrategy.h>
 #include <risk/RiskEngine.h>
+#include <risk/TenantLimits.h>
 #include <common/ipc/AeronPublisher.h>
 #include <common/ipc/AeronSubscriber.h>
 #include <common/ipc/ChannelConfig.h>
@@ -9,6 +10,8 @@
 #include <common/logger/Logger.h>
 #include <mach_zero_market_data/MessageHeader.h>
 #include <mach_zero_market_data/OrderRequest.h>
+
+#include <cstdlib>
 
 #include <iostream>
 #include <thread>
@@ -30,6 +33,22 @@ int main() {
 
     MZ_INFO("Mach-Zero: Strategy Engine Starting...");
 
+    // Load per-tenant risk limits from JSON file.
+    // Fail-fast on missing/malformed — running without config is not a
+    // valid state for a financial system.
+    TenantLimitsRegistry limitsRegistry;
+    const char* limitsPath = std::getenv("TENANT_LIMITS_FILE");
+    if (!limitsPath || *limitsPath == '\0') {
+        std::cerr << "FATAL: TENANT_LIMITS_FILE env var not set. "
+                     "Engine requires per-tenant limits configuration." << std::endl;
+        return 2;
+    }
+    int loaded = limitsRegistry.loadFromFile(limitsPath);
+    if (loaded < 0) {
+        return 2;  // Loader already printed FATAL diagnostic
+    }
+    MZ_INFO(("Loaded tenant limits for " + std::to_string(loaded) + " tenants").c_str());
+
     // Strategy engine
     StrategyEngine engine;
 
@@ -49,6 +68,7 @@ int main() {
 
     // Risk engine
     RiskEngine riskEngine;
+    riskEngine.setLimitsRegistry(&limitsRegistry);
 
     // Single shared Aeron instance for this service
     auto aeron = createAeronInstance();

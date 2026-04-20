@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "_description": "Per-tenant risk limits. Generate from Postgres Tenant + TenantMapping. Engine loads at startup from $TENANT_LIMITS_FILE; reload requires restart.",
+  "limits": {
+    "1": {
+      "maxPositionLimit": 1000000000,
+      "maxOrderRatePerSec": 100,
+      "maxOrderSize": 10000000000,
+      "priceBandPct": 0.05
+    }
+  }
+}
