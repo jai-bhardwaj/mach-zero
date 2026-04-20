@@ -9,8 +9,22 @@ vi.mock("@/lib/require-auth", () => ({
     role: "ADMIN",
     tenantId: "tenant-1",
     tenantName: "Test Tenant",
+    engineId: 1,
   }),
   isAuthError: vi.fn().mockReturnValue(false),
+}));
+
+// Mock Prisma — kill-switch route audit-logs and resolves tenant UUIDs
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    auditLog: { create: vi.fn().mockResolvedValue({}) },
+    tenantMapping: { findUnique: vi.fn().mockResolvedValue(null) },
+  },
+}));
+
+// Alert evaluator is fire-and-forget; stub it
+vi.mock("@/lib/alert-evaluator", () => ({
+  evaluateAlerts: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock global fetch for C++ proxy calls

@@ -41,11 +41,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create workspace and move user into it as ADMIN
+    // Create workspace + engine mapping + move user into it as ADMIN.
+    // The TenantMapping allocation must be atomic with Tenant creation
+    // so we never end up with a tenant that can't address the engine.
+    // Seed also enforces engineId < MAX_TENANTS (1024) at boot, but a
+    // runtime check here keeps the failure mode clean.
     const result = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: { name: trimmed, slug },
       });
+
+      const mapping = await tx.tenantMapping.create({
+        data: { tenantId: tenant.id },
+      });
+
+      if (mapping.engineId >= 1024) {
+        throw new Error(
+          `engineId=${mapping.engineId} >= MAX_TENANTS. Engine needs MAX_TENANTS bump before more tenants can be onboarded.`
+        );
+      }
 
       await tx.user.update({
         where: { id: session.userId },

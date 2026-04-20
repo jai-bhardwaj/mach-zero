@@ -20,10 +20,12 @@ export async function GET(request: NextRequest) {
 
   const conditions: string[] = [];
 
-  // Tenant isolation
-  if (session.tenantId) {
-    conditions.push(`tenant_id = '${session.tenantId.replace(/'/g, "")}'`);
+  // Tenant isolation: post-v3, the tenant_id column holds engineId-as-
+  // string. Fail closed if missing engineId.
+  if (typeof session.engineId !== "number") {
+    return NextResponse.json({ data: [], total: 0, offset: 0, limit });
   }
+  conditions.push(`tenant_id = '${session.engineId}'`);
 
   const parsedSymbolId = symbolId ? Number(symbolId) : NaN;
   if (Number.isFinite(parsedSymbolId)) conditions.push(`symbol_id = ${parsedSymbolId}`);

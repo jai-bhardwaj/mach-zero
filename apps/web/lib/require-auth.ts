@@ -7,6 +7,10 @@ export type AuthSession = {
   role: string;
   tenantId: string;
   tenantName: string;
+  // engineId is the uint32 the C++ trading engine uses on the SBE wire.
+  // Undefined if the tenant has no TenantMapping row yet (shouldn't happen
+  // post-migration, but guarded for rollout safety).
+  engineId?: number;
 };
 
 /**
@@ -28,6 +32,7 @@ export async function requireAuth(
     role: user.role as string,
     tenantId: user.tenantId as string,
     tenantName: user.tenantName as string,
+    engineId: typeof user.engineId === "number" ? (user.engineId as number) : undefined,
   };
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(authSession.role)) {
@@ -58,6 +63,7 @@ export async function requirePageAuth(): Promise<AuthSession> {
     role: user.role as string,
     tenantId: user.tenantId as string,
     tenantName: user.tenantName as string,
+    engineId: typeof user.engineId === "number" ? (user.engineId as number) : undefined,
   };
 }
 

@@ -31,6 +31,22 @@ model Tenant {
   invites       WorkspaceInvite[]
   notificationChannels NotificationChannel[]
   alerts               Alert[]
+  mapping              TenantMapping?
+}
+
+// Maps Tenant.id (UUID) to an engine-internal uint32 engineId, which is
+// the form the C++ trading engine uses on the wire (SBE OrderRequest.tenantId
+// etc.). Autoincrement sequence — never reused, never collides. engineId=0
+// is reserved for the global admin kill switch and is never assigned.
+//
+// Seed/migration must ensure sequence starts at >= 1 (Postgres default is 1).
+// MAX_TENANTS in the engine is 1024; exceeding that requires a code change
+// and redeploy.
+model TenantMapping {
+  engineId  Int      @id @default(autoincrement())
+  tenantId  String   @unique
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 model User {

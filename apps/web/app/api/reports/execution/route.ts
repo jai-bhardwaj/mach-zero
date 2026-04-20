@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const days = validateDays(Number(params.get("days") ?? "7"));
-  const tid = session.tenantId?.replace(/'/g, "") ?? "";
-  const tenantFilter = tid ? `AND tenant_id = '${tid}'` : "";
+  if (typeof session.engineId !== "number") {
+    return NextResponse.json({ status: [], rejects: [], orderStats: {} });
+  }
+  const tenantFilter = `AND tenant_id = '${session.engineId}'`;
 
   try {
     const [statusResult, rejectResult, orderStatsResult] = await Promise.all([

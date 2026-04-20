@@ -141,7 +141,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         try {
           const localUser = await prisma.user.findUnique({
             where: { email: token.email },
-            include: { tenant: true },
+            include: {
+              tenant: { include: { mapping: true } },
+            },
           });
           if (localUser) {
             token.sub = localUser.id;
@@ -149,6 +151,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.tenantId = localUser.tenantId;
             token.tenantName = localUser.tenant.name;
             token.onboardingComplete = localUser.onboardingComplete;
+            // engineId is the uint32 the C++ engine uses on the SBE wire.
+            // undefined during the rollout window when TenantMapping rows
+            // may lag tenant creation; callers treat undefined as "feature
+            // off" or "skip engine publish".
+            token.engineId = localUser.tenant.mapping?.engineId;
           }
         } catch {
           // DB unavailable — use cached token values
@@ -165,6 +172,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         u.tenantId = token.tenantId;
         u.tenantName = token.tenantName;
         u.onboardingComplete = token.onboardingComplete;
+        u.engineId = token.engineId;
       }
       return session;
     },

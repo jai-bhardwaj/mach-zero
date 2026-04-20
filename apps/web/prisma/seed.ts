@@ -13,6 +13,35 @@ async function main() {
     },
   });
 
+  // Backfill TenantMapping for every Tenant that doesn't have one.
+  // engineId comes from the autoincrement sequence (starts at 1 in Postgres).
+  // engineId=0 is reserved for the global admin kill switch — never assigned.
+  const tenantsWithoutMapping = await prisma.tenant.findMany({
+    where: { mapping: { is: null } },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  for (const t of tenantsWithoutMapping) {
+    await prisma.tenantMapping.create({ data: { tenantId: t.id } });
+  }
+
+  // Safety: engine has a compile-time MAX_TENANTS of 1024. Fail the seed
+  // early if we've exceeded that so the DB doesn't silently outgrow the
+  // engine's addressable space.
+  const mappingCount = await prisma.tenantMapping.count();
+  const maxMapping = await prisma.tenantMapping.findFirst({
+    orderBy: { engineId: "desc" },
+    select: { engineId: true },
+  });
+  if ((maxMapping?.engineId ?? 0) >= 1024) {
+    throw new Error(
+      `TenantMapping engineId=${maxMapping?.engineId} >= MAX_TENANTS (1024). ` +
+        "Bump MAX_TENANTS in core/src/risk/RiskState.h and redeploy the engine."
+    );
+  }
+  console.log(
+    `TenantMapping: ${mappingCount} mappings, max engineId=${maxMapping?.engineId ?? 0}`
+  );
+
   // Create super admin user (password not used — auth via Google/Apple/email)
   await prisma.user.upsert({
     where: { email: "0987sujals@gmail.com" },

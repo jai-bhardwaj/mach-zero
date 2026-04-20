@@ -12,8 +12,12 @@ export async function GET(request: NextRequest) {
 
   const daysMap: Record<string, number> = { "1d": 1, "7d": 7, "30d": 30 };
   const days = validateDays(daysMap[period] ?? 7);
-  const tid = session.tenantId?.replace(/'/g, "") ?? "";
-  const tenantFilter = tid ? `AND tenant_id = '${tid}'` : "";
+  // Post-v3 QuestDB schema stores engineId in tenant_id column. Fail
+  // closed on missing engineId.
+  if (typeof session.engineId !== "number") {
+    return NextResponse.json({ dailyPnl: [], summary: {}, side: [] });
+  }
+  const tenantFilter = `AND tenant_id = '${session.engineId}'`;
 
   try {
     const [dailyPnlResult, summaryResult, sideResult] = await Promise.all([

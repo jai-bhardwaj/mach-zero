@@ -20,10 +20,16 @@ export async function GET(request: NextRequest) {
 
   const conditions: string[] = [];
 
-  // Tenant isolation: only show trades belonging to this tenant
-  if (session.tenantId) {
-    conditions.push(`tenant_id = '${session.tenantId.replace(/'/g, "")}'`);
+  // Tenant isolation: filter by engineId (the stringified integer that
+  // the post-v3 persistence service writes into the tenant_id column).
+  // Pre-v3 rows stored the UUID or NULL and are naturally invisible to
+  // this filter — see infra/schema/questdb_tables.sql for the backfill
+  // note. If engineId is missing on the session (shouldn't happen post-
+  // migration), fail closed and return no rows.
+  if (typeof session.engineId !== "number") {
+    return NextResponse.json({ data: [], total: 0, offset: 0, limit });
   }
+  conditions.push(`tenant_id = '${session.engineId}'`);
 
   const parsedSymbolId = symbolId ? Number(symbolId) : NaN;
   if (Number.isFinite(parsedSymbolId)) conditions.push(`symbol_id = ${parsedSymbolId}`);
