@@ -21,7 +21,7 @@
 - ✅ User info in sidebar (name, tenant, initials avatar)
 - ✅ Sign-out button in sidebar
 - ✅ Session expiry detection (401 → redirect to `/login`)
-- 🔲 Login page renders inside app shell (sidebar/header visible) — needs route group `(auth)` layout
+- ✅ Login page in `(auth)` route group with its own layout (no sidebar/header)
 - 🔲 Session expiry handling in all polling hooks (only TradingModeContext has it)
 - 🔲 Password change / profile settings page
 - 🔲 Hardcoded `NEXTAUTH_SECRET` fallback — should fail in production if env var missing
@@ -123,8 +123,8 @@
 - ✅ Loading skeletons (`loading.tsx`) for all 11 route segments
 - ✅ Responsive layout (sidebar collapses, mobile sidebar)
 - ✅ Tailwind CSS 4 with CSS custom properties + dark mode
-- 🔲 Login page layout fix (should not show sidebar/header)
-- 🔲 Toast/notification system for success/error feedback
+- ✅ Login page layout fix (should not show sidebar/header)
+- ✅ Toast/notification system (sonner) wired across strategies, kill-switch, square-off, marketplace, accounts
 - 🔲 Keyboard shortcuts for common actions
 - 🔲 Empty states for tables/lists when no data
 
@@ -243,15 +243,14 @@
 ## Priority Order (Recommended)
 
 ### 🔴 P0 — Security & Correctness
-1. Login page layout fix (hide sidebar/header)
-2. SQL injection fix in QuestDB query routes
-3. Fix `NEXTAUTH_SECRET` fallback
+1. SQL injection fix in QuestDB query routes
+2. Fix `NEXTAUTH_SECRET` fallback
+3. SBE tenant isolation (see `docs/0001-sbe-tenant-isolation.md`)
 
 ### 🟠 P1 — Core Functionality Gaps
-4. Toast/notification system
-5. Tenant CRUD
-6. Account CRUD
-7. Audit log viewer
+4. Tenant CRUD
+5. Account CRUD
+6. Audit log viewer
 
 ### 🟡 P2 — Architecture & Code Quality
 8. Server Component refactor (5 pages)

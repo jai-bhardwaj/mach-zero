@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -160,6 +161,7 @@ export function AccountDialog({ open, onOpenChange, account, onSaved }: Props) {
         });
       }
 
+      toast.success(isEditing ? "Account updated" : "Account connected");
       onOpenChange(false);
       resetForm();
       onSaved();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import type { SquareOffResult } from "@/types";
 import { useSquareOff } from "@/hooks/useSquareOff";
 import { usePositions } from "@/hooks/usePositions";
@@ -25,6 +26,13 @@ export function SquareOffPanel() {
     setResult(data);
     setShowConfirm(false);
     setConfirmText("");
+    if (data.success) {
+      toast.success(
+        `Square-off complete — ${data.symbolsSquaredOff} symbols, ${data.strategiesPaused} strategies paused`
+      );
+    } else {
+      toast.error("Square-off failed");
+    }
   };
 
   const handleCancel = () => {

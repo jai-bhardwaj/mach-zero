@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import type { StrategyTemplate, StrategyCategory, RiskLevel } from "@/types";
 import { STRATEGY_CATEGORIES, RISK_LEVEL_STYLES } from "@/types";
 import { MarketplaceTemplateCard } from "@/components/marketplace/MarketplaceTemplateCard";
@@ -38,7 +39,6 @@ export function MarketplaceClient({ initialTemplates, accounts }: Props) {
   const [subscribingTemplate, setSubscribingTemplate] =
     useState<StrategyTemplate | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const refreshTemplates = async () => {
     try {
@@ -62,15 +62,16 @@ export function MarketplaceClient({ initialTemplates, accounts }: Props) {
         body: JSON.stringify({ templateId, accountId, symbolId }),
       });
       if (res.ok) {
+        toast.success("Subscribed — strategy created in MOCK mode");
         setSubscribingTemplate(null);
         setSelectedTemplate(null);
         refreshTemplates();
       } else {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        setError(err.error ?? "Failed to subscribe to strategy");
+        toast.error(err.error ?? "Failed to subscribe to strategy");
       }
     } catch {
-      setError("Failed to subscribe. Please try again.");
+      toast.error("Failed to subscribe. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -95,19 +96,6 @@ export function MarketplaceClient({ initialTemplates, accounts }: Props) {
 
   return (
     <>
-      {/* Error Banner */}
-      {error && (
-        <div className="flex items-center justify-between rounded-lg border border-red-500/30 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-          <span>{error}</span>
-          <button
-            onClick={() => setError(null)}
-            className="text-xs text-red-400/70 hover:text-red-400"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
       {/* Category Filter Tabs */}
       <div className="flex flex-wrap gap-1 border-b border-border">
         {ALL_CATEGORIES.map((c) => (

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthSessionProvider } from "@/components/providers/SessionProvider";
@@ -36,6 +37,7 @@ export default function RootLayout({
           <ThemeProvider>
             <TooltipProvider>
               {children}
+              <Toaster theme="dark" position="bottom-right" richColors closeButton />
             </TooltipProvider>
           </ThemeProvider>
         </AuthSessionProvider>

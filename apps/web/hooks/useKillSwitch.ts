@@ -19,7 +19,7 @@ export function useKillSwitch() {
   }, []);
 
   const toggle = useCallback(
-    async (state: "on" | "off") => {
+    async (state: "on" | "off"): Promise<boolean> => {
       setLoading(true);
       try {
         const res = await fetch("/api/kill-switch", {
@@ -27,10 +27,12 @@ export function useKillSwitch() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ state }),
         });
-        if (res.ok) {
-          const data = await res.json();
-          setActive(data.killSwitch === true);
-        }
+        if (!res.ok) return false;
+        const data = await res.json();
+        setActive(data.killSwitch === true);
+        return true;
+      } catch {
+        return false;
       } finally {
         setLoading(false);
       }

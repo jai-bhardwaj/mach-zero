@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useKillSwitch } from "@/hooks/useKillSwitch";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -8,7 +9,6 @@ import { cn } from "@/lib/utils";
 export function KillSwitchPanel() {
   const { active, loading, refresh, toggle } = useKillSwitch();
   const [confirmAction, setConfirmAction] = useState<"on" | "off" | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     refresh();
@@ -18,10 +18,17 @@ export function KillSwitchPanel() {
 
   const handleToggle = async () => {
     if (!confirmAction) return;
-    try {
-      await toggle(confirmAction);
-    } catch {
-      setError(`Failed to ${confirmAction === "on" ? "activate" : "deactivate"} kill switch`);
+    const ok = await toggle(confirmAction);
+    if (ok) {
+      toast.success(
+        confirmAction === "on"
+          ? "Kill switch activated — all orders halted"
+          : "Kill switch deactivated — orders flowing"
+      );
+    } else {
+      toast.error(
+        `Failed to ${confirmAction === "on" ? "activate" : "deactivate"} kill switch`
+      );
     }
     setConfirmAction(null);
   };
@@ -29,18 +36,6 @@ export function KillSwitchPanel() {
   return (
     <div className="rounded-lg border border-border/50 p-4 space-y-3">
       <h2 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Kill Switch</h2>
-
-      {error && (
-        <div className="flex items-center justify-between rounded-lg border border-red-500/30 bg-red-900/20 px-4 py-3 text-sm text-red-400">
-          <span>{error}</span>
-          <button
-            onClick={() => setError(null)}
-            className="text-xs text-red-400/70 hover:text-red-400"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
 
       <div className="flex items-center gap-2">
         <span

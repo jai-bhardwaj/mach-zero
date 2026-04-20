@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ export function DeleteAccountDialog({ account, open, onOpenChange, onDeleted }: 
         setError(data.error ?? "Failed to delete account");
         return;
       }
+      toast.success(`Account "${account.name}" deleted`);
       onOpenChange(false);
       onDeleted();
     } catch {
