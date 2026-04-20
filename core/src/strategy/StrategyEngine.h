@@ -7,6 +7,7 @@
 #include <mach_zero_market_data/Trade.h>
 #include <mach_zero_market_data/Quote.h>
 #include <mach_zero_market_data/OrderAck.h>
+#include <mach_zero_market_data/OrderReject.h>
 #include <mach_zero_market_data/OrderRequest.h>
 #include <mach_zero_market_data/MessageHeader.h>
 
@@ -64,7 +65,9 @@ public:
         }
     }
 
-    // Process a raw SBE message from the ack stream
+    // Process a raw SBE message from the ack stream. Routes to strategies
+    // matching the ack's tenantId — defense in depth against clientOrderId
+    // collisions across tenants.
     void processAck(const char* data, size_t length) {
         MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
         if (!mach_zero::ipc::isValidSchema(hdr)) return;
@@ -72,7 +75,17 @@ public:
             OrderAck ack;
             ack.wrapForDecode(const_cast<char*>(data), MessageHeader::encodedLength(),
                               hdr.blockLength(), hdr.version(), length);
-            for (auto& s : strategies_) s->onOrderAck(ack);
+            for (auto& s : strategies_) {
+                if (s->tenantId() == ack.tenantId()) s->onOrderAck(ack);
+            }
+        } else if (hdr.templateId() == OrderReject::sbeTemplateId()) {
+            // OrderReject handling is symmetric: route to the tenant's
+            // strategies so they can unblock retries or alert. Strategies
+            // don't currently override onOrderReject — stub via onOrderAck
+            // with a rejected status would need schema changes, so we
+            // simply leave rejects unhandled beyond logging at the
+            // consumer level. Filter here to prevent spurious fanout.
+            (void)length;
         }
     }
 

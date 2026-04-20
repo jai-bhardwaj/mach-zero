@@ -27,6 +27,8 @@ public:
 
     explicit MomentumStrategy(const Config& config) : config_(config) {}
 
+    uint32_t tenantId() const override { return config_.tenantId; }
+
     void onTrade(const Trade& trade) override {
         if (trade.symbolId() != config_.symbolId) return;
 

@@ -25,6 +25,7 @@ struct OpenOrder {
     int64_t price;
     uint64_t quantity;
     uint64_t filledQty;
+    uint32_t tenantId;   // Carries tenantId from OrderRequest to OrderAck
 };
 
 // Simulated exchange for backtesting.
@@ -42,11 +43,12 @@ public:
         o.price = order.price();
         o.quantity = order.quantity();
         o.filledQty = 0;
+        o.tenantId = order.tenantId();
 
         openOrders_[o.orderId] = o;
 
         // Send new ack
-        sendAck(o.orderId, o.symbolId, OrderStatus::Value::New, 0, 0);
+        sendAck(o.orderId, o.symbolId, OrderStatus::Value::New, 0, 0, o.tenantId);
     }
 
     // Process a market trade against open orders
@@ -70,12 +72,12 @@ public:
 
                 if (order.filledQty >= order.quantity) {
                     sendAck(id, symbolId, OrderStatus::Value::Filled,
-                            order.quantity, tradePrice);
+                            order.quantity, tradePrice, order.tenantId);
                     toRemove.push_back(id);
                     ++totalFills_;
                 } else {
                     sendAck(id, symbolId, OrderStatus::Value::PartialFill,
-                            order.filledQty, tradePrice);
+                            order.filledQty, tradePrice, order.tenantId);
                 }
             }
         }
@@ -91,7 +93,7 @@ public:
         if (it == openOrders_.end()) return false;
 
         sendAck(orderId, it->second.symbolId, OrderStatus::Value::Cancelled,
-                it->second.filledQty, 0);
+                it->second.filledQty, 0, it->second.tenantId);
         openOrders_.erase(it);
         return true;
     }
@@ -101,7 +103,7 @@ public:
 
 private:
     void sendAck(uint64_t orderId, uint64_t symbolId, OrderStatus::Value status,
-                 uint64_t filledQty, int64_t avgPrice) {
+                 uint64_t filledQty, int64_t avgPrice, uint32_t tenantId) {
         if (!fillCallback_) return;
 
         char buf[256];
@@ -115,7 +117,8 @@ private:
            .avgPrice(avgPrice)
            .exchangeOrderId(orderId)
            .venue(Venue::Unknown)
-           .timestamp(0);
+           .timestamp(0)
+           .tenantId(tenantId);
 
         fillCallback_(buf, OrderAck::sbeBlockAndHeaderLength());
     }

@@ -17,6 +17,8 @@ using OrderEmitter = std::function<void(const char* buf, size_t len)>;
 
 // Abstract base class for trading strategies.
 // Strategies receive market data events and emit OrderRequest messages.
+// Each concrete strategy belongs to exactly one tenant (engineId); the
+// StrategyEngine uses this to route OrderAcks back to the right instance.
 class Strategy {
 public:
     virtual ~Strategy() = default;
@@ -25,6 +27,10 @@ public:
     virtual void onQuote(const Quote& quote) = 0;
     virtual void onOrderAck(const OrderAck& ack) = 0;
     virtual void onTimer(uint64_t nowNanos) { (void)nowNanos; }
+
+    // Tenant that owns this strategy instance. Concrete strategies read
+    // this from their Config struct and return it.
+    virtual uint32_t tenantId() const = 0;
 
     void setOrderEmitter(OrderEmitter emitter) { emitter_ = std::move(emitter); }
 
