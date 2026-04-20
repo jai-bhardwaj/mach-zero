@@ -10,6 +10,8 @@
 #include <common/logger/Logger.h>
 #include <mach_zero_market_data/MessageHeader.h>
 #include <mach_zero_market_data/OrderRequest.h>
+#include <mach_zero_market_data/RiskCommand.h>
+#include <mach_zero_market_data/RiskCommandType.h>
 
 #include <cstdlib>
 
@@ -78,6 +80,11 @@ int main() {
                                  AeronSubscriber::IdleStrategy::Sleeping);
     AeronSubscriber ackSubscriber(aeron, std::string(IPC_CHANNEL), ACK_STREAM,
                                   AeronSubscriber::IdleStrategy::Sleeping);
+    // RISK stream subscriber: applies received kill-switch commands
+    // published by risk-monitor's HTTP handler. Fixes the pre-existing
+    // bug where HTTP toggles on risk-monitor did not reach strategy-engine.
+    AeronSubscriber riskSubscriber(aeron, std::string(IPC_CHANNEL), RISK_STREAM,
+                                   AeronSubscriber::IdleStrategy::Sleeping);
     AeronPublisher orderPublisher(aeron, std::string(IPC_CHANNEL), ORDER_STREAM);
     AeronPublisher validatedPublisher(aeron, std::string(IPC_CHANNEL), VALIDATED_ORDER_STREAM);
     AeronPublisher rejectPublisher(aeron, std::string(IPC_CHANNEL), ACK_STREAM);
@@ -108,6 +115,33 @@ int main() {
                     riskEngine.onTrade(trade);
                 }
             }, 100);
+
+        // Poll RISK stream — apply kill-switch commands to our local state
+        riskSubscriber.poll(
+            [&](aeron::concurrent::AtomicBuffer& buffer, aeron::util::index_t offset,
+                aeron::util::index_t length, aeron::Header& /*header*/) {
+                const char* data = reinterpret_cast<const char*>(buffer.buffer()) + offset;
+                MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
+                if (hdr.templateId() != RiskCommand::sbeTemplateId()) return;
+
+                RiskCommand cmd;
+                cmd.wrapForDecode(const_cast<char*>(data), MessageHeader::encodedLength(),
+                                  hdr.blockLength(), hdr.version(), length);
+                auto tenantId = cmd.tenantId();
+                if (tenantId >= RiskState::MAX_TENANTS) return;
+
+                switch (cmd.commandType()) {
+                    case RiskCommandType::KillSwitchOn:
+                        riskEngine.killSwitch().activate(tenantId);
+                        break;
+                    case RiskCommandType::KillSwitchOff:
+                        riskEngine.killSwitch().deactivate(tenantId);
+                        break;
+                    default:
+                        break;
+                }
+            }, 10);
 
         // Poll acks
         ackSubscriber.poll(
