@@ -298,7 +298,7 @@ TEST(E2EPipeline, TradeToStrategyToRisk) {
     stratEngine.addStrategy(std::make_shared<SimpleSpreadStrategy>(cfg));
 
     mach_zero::risk::RiskEngine riskEngine;
-    riskEngine.state().setLastPrice(1, 5000000000000LL);
+    riskEngine.state().setLastPrice(static_cast<uint8_t>(Venue::Value::Binance), 1, 5000000000000LL);
 
     // Feed market data (quote)
     char buf[256];

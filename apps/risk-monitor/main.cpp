@@ -185,10 +185,30 @@ int main() {
 
     // Register POST /square-off route
     http.addPostRoute("/square-off", [&](const std::string& body) -> std::string {
-        // Parse JSON body: {"symbolId": 123, "venue": 1} or {"all": true, "venue": 1}
+        // Parse JSON body:
+        //   {"tenantId": N, "symbolId": 123, "venue": 1}
+        //   {"tenantId": N, "all": true, "venue": 1}
+        // tenantId required. Commit 5 (legacy HTTP compat) will soften this
+        // during rollout via ACCEPT_LEGACY_KILLSWITCH flag.
+        std::string tenantIdStr = jsonGetString(body, "tenantId");
         std::string allStr = jsonGetString(body, "all");
         std::string symbolStr = jsonGetString(body, "symbolId");
         std::string venueStr = jsonGetString(body, "venue");
+
+        uint32_t tenantId = 0;
+        if (!tenantIdStr.empty()) {
+            try {
+                auto v = std::stoul(tenantIdStr);
+                if (v >= RiskState::MAX_TENANTS) {
+                    return R"({"success":false,"error":"tenantId out of range"})";
+                }
+                tenantId = static_cast<uint32_t>(v);
+            } catch (const std::exception&) {
+                return R"({"success":false,"error":"tenantId malformed"})";
+            }
+        }
+        // tenantId=0 accepted here for back-compat with pre-v3 callers; the
+        // SquareOffManager treats non-SHM_TENANT_ID tenants as no-ops.
 
         // Default to Binance if no venue specified
         Venue::Value venue = Venue::Value::Binance;
@@ -200,12 +220,12 @@ int main() {
         SquareOffResult result;
         if (allStr == "true") {
             MZ_INFO("Square-off ALL positions via HTTP");
-            result = squareOffMgr.squareOffAll(venue);
+            result = squareOffMgr.squareOffAll(tenantId, venue);
         } else if (!symbolStr.empty()) {
             uint64_t symbolId = std::stoull(symbolStr);
             std::string msg = "Square-off symbol " + symbolStr + " via HTTP";
             MZ_INFO(msg.c_str());
-            result = squareOffMgr.squareOffSymbol(symbolId, venue);
+            result = squareOffMgr.squareOffSymbol(tenantId, symbolId, venue);
         } else {
             return R"({"success":false,"error":"Missing 'symbolId' or 'all' parameter"})";
         }
