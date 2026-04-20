@@ -5,6 +5,7 @@
 #include <common/ipc/AeronPublisher.h>
 #include <common/ipc/AeronSubscriber.h>
 #include <common/ipc/ChannelConfig.h>
+#include <common/ipc/SchemaValidator.h>
 #include <common/logger/Logger.h>
 #include <mach_zero_market_data/MessageHeader.h>
 #include <mach_zero_market_data/OrderRequest.h>
@@ -71,10 +72,15 @@ int main() {
             [&](aeron::concurrent::AtomicBuffer& buffer, aeron::util::index_t offset,
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 const char* data = reinterpret_cast<const char*>(buffer.buffer()) + offset;
+
+                // Schema validation before any decode. Stale producers with
+                // schemaId<2 would otherwise silently decode garbage.
+                MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
+
                 engine.processMarketData(data, length);
 
                 // Update risk engine last prices
-                MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
                 if (hdr.templateId() == Trade::sbeTemplateId()) {
                     Trade trade;
                     trade.wrapForDecode(const_cast<char*>(data), MessageHeader::encodedLength(),
@@ -96,6 +102,7 @@ int main() {
         for (const auto& orderBuf : orders) {
             MessageHeader hdr(const_cast<char*>(orderBuf.data()), orderBuf.size(),
                               MessageHeader::sbeSchemaVersion());
+            if (!mach_zero::ipc::isValidSchema(hdr)) continue;
             OrderRequest req;
             req.wrapForDecode(const_cast<char*>(orderBuf.data()), MessageHeader::encodedLength(),
                               hdr.blockLength(), hdr.version(), orderBuf.size());

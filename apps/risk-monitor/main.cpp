@@ -1,6 +1,7 @@
 #include <common/ipc/AeronPublisher.h>
 #include <common/ipc/AeronSubscriber.h>
 #include <common/ipc/ChannelConfig.h>
+#include <common/ipc/SchemaValidator.h>
 #include <common/ipc/SharedMemoryWriter.h>
 #include <common/metrics/Metrics.h>
 #include <common/metrics/MetricsExporter.h>
@@ -235,6 +236,7 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == Trade::sbeTemplateId()) {
                     Trade trade;
@@ -252,6 +254,7 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == OrderRequest::sbeTemplateId()) {
                     OrderRequest req;
@@ -268,6 +271,7 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == OrderAck::sbeTemplateId()) {
                     OrderAck ack;

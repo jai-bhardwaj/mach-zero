@@ -3,6 +3,7 @@
 #include "Strategy.h"
 #include <matching/OrderBook.h>
 #include <common/ipc/ChannelConfig.h>
+#include <common/ipc/SchemaValidator.h>
 #include <mach_zero_market_data/Trade.h>
 #include <mach_zero_market_data/Quote.h>
 #include <mach_zero_market_data/OrderAck.h>
@@ -36,6 +37,7 @@ public:
     // Process a raw SBE message from the market data stream
     void processMarketData(const char* data, size_t length) {
         MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
+        if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
         switch (hdr.templateId()) {
             case Trade::sbeTemplateId(): {
@@ -65,6 +67,7 @@ public:
     // Process a raw SBE message from the ack stream
     void processAck(const char* data, size_t length) {
         MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
+        if (!mach_zero::ipc::isValidSchema(hdr)) return;
         if (hdr.templateId() == OrderAck::sbeTemplateId()) {
             OrderAck ack;
             ack.wrapForDecode(const_cast<char*>(data), MessageHeader::encodedLength(),
