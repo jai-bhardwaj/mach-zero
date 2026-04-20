@@ -86,7 +86,8 @@ int main() {
                     Trade trade;
                     trade.wrapForDecode(data, MessageHeader::encodedLength(),
                                         hdr.blockLength(), hdr.version(), length);
-                    sink.writeTrade(trade.symbolId(), trade.price(), trade.quantity(),
+                    // Market data is public; tenant_id=0 marks it as such.
+                    sink.writeTrade(0, trade.symbolId(), trade.price(), trade.quantity(),
                                    trade.sideRaw(), trade.venueRaw(), trade.timestamp());
                     ++tradeCount;
                 }
@@ -104,8 +105,9 @@ int main() {
                     OrderRequest req;
                     req.wrapForDecode(data, MessageHeader::encodedLength(),
                                       hdr.blockLength(), hdr.version(), length);
-                    sink.writeOrder(req.orderId(), req.symbolId(), req.sideRaw(),
-                                   req.price(), req.quantity(), "validated", req.timestamp());
+                    sink.writeOrder(req.tenantId(), req.orderId(), req.symbolId(),
+                                   req.sideRaw(), req.price(), req.quantity(),
+                                   "validated", req.timestamp());
                     ++orderCount;
                 }
             }, 50);
@@ -122,14 +124,16 @@ int main() {
                     OrderAck ack;
                     ack.wrapForDecode(data, MessageHeader::encodedLength(),
                                       hdr.blockLength(), hdr.version(), length);
-                    sink.writeOrder(ack.orderId(), ack.symbolId(), 0,
-                                   ack.avgPrice(), ack.filledQuantity(), "acked", ack.timestamp());
+                    sink.writeOrder(ack.tenantId(), ack.orderId(), ack.symbolId(), 0,
+                                   ack.avgPrice(), ack.filledQuantity(), "acked",
+                                   ack.timestamp());
                     ++ackCount;
                 } else if (hdr.templateId() == OrderReject::sbeTemplateId()) {
                     OrderReject reject;
                     reject.wrapForDecode(data, MessageHeader::encodedLength(),
                                           hdr.blockLength(), hdr.version(), length);
-                    sink.writeRiskEvent(reject.orderId(), 0, "rejected", reject.timestamp());
+                    sink.writeRiskEvent(reject.tenantId(), reject.orderId(), 0,
+                                        "rejected", reject.timestamp());
                 }
             }, 50);
 

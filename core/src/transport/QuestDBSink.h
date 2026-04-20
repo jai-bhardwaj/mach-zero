@@ -80,13 +80,18 @@ public:
 
     bool isConnected() const { return connected_; }
 
-    // Write a trade record in ILP format
-    void writeTrade(uint64_t symbolId, int64_t price, uint64_t quantity,
-                    uint8_t side, uint8_t venue, uint64_t timestampNanos) {
+    // Write a trade record in ILP format.
+    // tenantId is stringified and written to the tenant_id STRING column.
+    // Use tenantId=0 for public market data (no tenant ownership).
+    void writeTrade(uint32_t tenantId, uint64_t symbolId, int64_t price,
+                    uint64_t quantity, uint8_t side, uint8_t venue,
+                    uint64_t timestampNanos) {
         buffer_.append("trades");
         appendTag("symbol_id", symbolId);
         appendTag("venue", venue);
-        buffer_.append(" price=");
+        buffer_.append(" tenant_id=\"");
+        buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",price=");
         appendFixedPoint(price);
         buffer_.append(",quantity=");
         appendFixedPoint(static_cast<int64_t>(quantity));
@@ -98,14 +103,16 @@ public:
         maybeFlush();
     }
 
-    // Write an order event in ILP format
-    void writeOrder(uint64_t orderId, uint64_t symbolId, uint8_t side,
-                    int64_t price, uint64_t quantity, const char* status,
-                    uint64_t timestampNanos) {
+    // Write an order event in ILP format.
+    void writeOrder(uint32_t tenantId, uint64_t orderId, uint64_t symbolId,
+                    uint8_t side, int64_t price, uint64_t quantity,
+                    const char* status, uint64_t timestampNanos) {
         buffer_.append("orders");
         appendTag("symbol_id", symbolId);
         appendTag("order_id", orderId);
-        buffer_.append(" side=");
+        buffer_.append(" tenant_id=\"");
+        buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",side=");
         buffer_.append(std::to_string(side));
         buffer_.append("i,price=");
         appendFixedPoint(price);
@@ -119,13 +126,15 @@ public:
         maybeFlush();
     }
 
-    // Write a risk event in ILP format
-    void writeRiskEvent(uint64_t orderId, uint64_t symbolId,
+    // Write a risk event in ILP format.
+    void writeRiskEvent(uint32_t tenantId, uint64_t orderId, uint64_t symbolId,
                         const char* reason, uint64_t timestampNanos) {
         buffer_.append("risk_events");
         appendTag("symbol_id", symbolId);
         appendTag("order_id", orderId);
-        buffer_.append(" reason=\"");
+        buffer_.append(" tenant_id=\"");
+        buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",reason=\"");
         buffer_.append(reason);
         buffer_.append("\" ");
         buffer_.append(std::to_string(timestampNanos));

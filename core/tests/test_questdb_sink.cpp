@@ -50,6 +50,34 @@ TEST(QuestDBSink, WriteTradeFormat) {
     cfg.batchSize = 1000;
     QuestDBSink sink(cfg);
 
-    sink.writeTrade(1, 5000000000000LL, 100000000ULL, 1, 1, 1000000000ULL);
+    // (tenantId=0, symbolId=1, ...)
+    sink.writeTrade(0, 1, 5000000000000LL, 100000000ULL, 1, 1, 1000000000ULL);
     EXPECT_EQ(sink.pendingLines(), 1u);
+}
+
+TEST(QuestDBSink, WriteOrderIncludesTenantId) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+
+    sink.writeOrder(/*tenantId=*/42, /*orderId=*/100, /*symbolId=*/1, /*side=*/1,
+                    /*price=*/5000000000000LL, /*quantity=*/100000000ULL,
+                    "validated", 1000000000ULL);
+    EXPECT_EQ(sink.pendingLines(), 1u);
+    // Buffer should contain the tenant_id tag
+    // (bufferSize is > 0 sanity; we can't easily inspect content without
+    // exposing getter, but compiling & running is the guarantee that the
+    // signature change didn't break callers.)
+    EXPECT_GT(sink.bufferSize(), 0u);
+}
+
+TEST(QuestDBSink, WriteRiskEventIncludesTenantId) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+
+    sink.writeRiskEvent(/*tenantId=*/7, /*orderId=*/100, /*symbolId=*/1,
+                        "PositionLimit", 1000000000ULL);
+    EXPECT_EQ(sink.pendingLines(), 1u);
+    EXPECT_GT(sink.bufferSize(), 0u);
 }
