@@ -244,8 +244,8 @@
 
 ### 🔴 P0 — Security & Correctness
 1. SQL injection fix in QuestDB query routes
-2. Fix `NEXTAUTH_SECRET` fallback
-3. SBE tenant isolation (see `docs/0001-sbe-tenant-isolation.md`)
+2. ✅ Fix `NEXTAUTH_SECRET` fallback — `requireSecret()` in `lib/auth.ts` fails fast in production, blocks the dev-compose default value
+3. ✅ SBE tenant isolation (see `docs/0001-sbe-tenant-isolation.md`) — branch `feat/sbe-tenant-isolation`, 9 commits, 151 C++ + 162 web tests green
 
 ### 🟠 P1 — Core Functionality Gaps
 4. Tenant CRUD
