@@ -178,6 +178,11 @@ export interface TradingAccountWithRelations extends TradingAccount {
 export interface AccountValidationResult {
   valid: boolean;
   canTrade?: boolean;
+  // canWithdraw true = the API key permits fund withdrawal. Mach-Zero
+  // never withdraws, so this is purely a security footgun: a leaked
+  // withdraw-enabled key drains the user's exchange account. UX should
+  // warn loudly and prefer to block the save.
+  canWithdraw?: boolean;
   permissions?: string[];
   balances?: { asset: string; free: string; locked: string }[];
   error?: string;

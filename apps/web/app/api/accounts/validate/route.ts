@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       valid: true,
       canTrade: data.canTrade,
+      // Surface canWithdraw to the client — Mach-Zero never withdraws,
+      // so a withdraw-enabled key is purely additional risk surface for
+      // the user. The UI warns prominently when this is true.
+      canWithdraw: data.canWithdraw,
       permissions,
       balances: data.balances
         ?.filter(
