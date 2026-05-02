@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
+import { track } from "@/lib/analytics";
 
 const BINANCE_URLS = {
   testnet: "https://testnet.binance.vision",
@@ -72,6 +73,19 @@ export async function POST(request: NextRequest) {
     const permissions: string[] = [];
     if (data.permissions?.includes("SPOT")) permissions.push("SPOT");
     if (data.permissions?.includes("FUTURES")) permissions.push("FUTURES");
+
+    track({
+      userId: session.userId,
+      event: "account_validated",
+      tenantId: session.tenantId,
+      properties: {
+        venue: "Binance",
+        testnet,
+        canTrade: data.canTrade,
+        canWithdraw: data.canWithdraw,   // funnel-critical signal
+        permissions,
+      },
+    });
 
     return NextResponse.json({
       valid: true,

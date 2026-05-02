@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthSessionProvider } from "@/components/providers/SessionProvider";
+import { PostHogProvider } from "@/components/providers/PostHogProvider";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -34,12 +35,14 @@ export default function RootLayout({
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
         <AuthSessionProvider>
-          <ThemeProvider>
-            <TooltipProvider>
-              {children}
-              <Toaster theme="dark" position="bottom-right" richColors closeButton />
-            </TooltipProvider>
-          </ThemeProvider>
+          <PostHogProvider>
+            <ThemeProvider>
+              <TooltipProvider>
+                {children}
+                <Toaster theme="dark" position="bottom-right" richColors closeButton />
+              </TooltipProvider>
+            </ThemeProvider>
+          </PostHogProvider>
         </AuthSessionProvider>
       </body>
     </html>

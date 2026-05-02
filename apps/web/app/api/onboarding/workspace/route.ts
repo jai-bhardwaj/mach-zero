@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
 import { evaluateGeoblock } from "@/lib/sanctions";
+import { track } from "@/lib/analytics";
 
 // POST /api/onboarding/workspace — create a new workspace and move user into it as ADMIN
 export async function POST(request: NextRequest) {
@@ -86,10 +87,20 @@ export async function POST(request: NextRequest) {
         data: { tenantId: tenant.id, role: "ADMIN" },
       });
 
-      return tenant;
+      return { tenant, engineId: mapping.engineId };
     });
 
-    return NextResponse.json(result, { status: 201 });
+    track({
+      userId: session.userId,
+      event: "workspace_created",
+      engineId: result.engineId,
+      tenantId: result.tenant.id,
+      tenantName: result.tenant.name,
+      role: "ADMIN",
+      properties: { country: geo.country },
+    });
+
+    return NextResponse.json(result.tenant, { status: 201 });
   } catch {
     return NextResponse.json(
       { error: "Failed to create workspace" },
