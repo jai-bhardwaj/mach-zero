@@ -1,12 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
+import { evaluateGeoblock } from "@/lib/sanctions";
 
 // POST /api/onboarding/workspace — create a new workspace and move user into it as ADMIN
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
     if (isAuthError(session)) return session;
+
+    // Geo-block sanctioned jurisdictions before we let a user create
+    // their first workspace. Returning 451 (Unavailable For Legal
+    // Reasons) is RFC-7725 idiomatic for this case and gives the
+    // frontend a specific status to render a clear message against.
+    const geo = evaluateGeoblock(request);
+    if (!geo.ok) {
+      return NextResponse.json(
+        {
+          error:
+            geo.reason === "sanctioned"
+              ? "Mach-Zero is not available in your region for legal reasons."
+              : "We could not verify your location. Try again, or contact support if this persists.",
+          reason: geo.reason,
+          country: geo.country,
+        },
+        { status: geo.reason === "sanctioned" ? 451 : 503 }
+      );
+    }
 
     const body = await request.json();
     const { name } = body;
