@@ -13,11 +13,18 @@ enum TradingMode {
   LIVE
 }
 
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
 model Tenant {
   id            String      @id @default(uuid())
   name          String      @unique
   slug          String      @unique
   active        Boolean     @default(true)
+  plan          Plan        @default(FREE)
   config        Json?
   createdAt     DateTime    @default(now())
 
@@ -32,6 +39,27 @@ model Tenant {
   notificationChannels NotificationChannel[]
   alerts               Alert[]
   mapping              TenantMapping?
+  billing              Billing?
+}
+
+// Stripe customer + subscription state. One per tenant. Created lazily
+// at first checkout attempt; the webhook keeps it in sync.
+model Billing {
+  id                   String    @id @default(uuid())
+  tenantId             String    @unique
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String    @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  // Mirror of Stripe's subscription.status: active, trialing, past_due,
+  // canceled, unpaid, incomplete, incomplete_expired, paused.
+  status               String    @default("incomplete")
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([stripeCustomerId])
 }
 
 // Maps Tenant.id (UUID) to an engine-internal uint32 engineId, which is
