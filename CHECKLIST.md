@@ -243,9 +243,9 @@
 ## Priority Order (Recommended)
 
 ### 🔴 P0 — Security & Correctness
-1. SQL injection fix in QuestDB query routes
+1. ✅ SQL injection guarantees on QuestDB query routes — audit complete; all 6 routes route every user input through whitelist validators (`validateTradingMode`, `validateOrderStatus`, `validateRiskReason`, `validateTimestamp`, `validateDays`) or numeric clamping. 54 regression tests in `lib/__tests__/questdb-sanitize.test.ts` cover injection attempts (`'; DROP --`, `' OR 1=1`, null bytes, ORDER BY tampering, etc.).
 2. ✅ Fix `NEXTAUTH_SECRET` fallback — `requireSecret()` in `lib/auth.ts` fails fast in production, blocks the dev-compose default value
-3. ✅ SBE tenant isolation (see `docs/0001-sbe-tenant-isolation.md`) — branch `feat/sbe-tenant-isolation`, 9 commits, 151 C++ + 162 web tests green
+3. ✅ SBE tenant isolation (see `docs/0001-sbe-tenant-isolation.md`) — branch `feat/sbe-tenant-isolation`, 9 commits, 151 C++ + 216 web tests green
 
 ### 🟠 P1 — Core Functionality Gaps
 4. Tenant CRUD
