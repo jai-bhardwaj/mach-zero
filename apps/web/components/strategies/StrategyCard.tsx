@@ -4,29 +4,8 @@ import { useState } from "react";
 import type { StrategyConfig, StrategyStatus, SymbolState, TradingMode } from "@/types";
 import { STATUS_TRANSITIONS } from "@/types";
 import { formatPrice, formatPnl, formatQuantity, pnlColor, cn } from "@/lib/utils";
+import { formatParamDisplay, paramLabel } from "@/lib/strategy-params";
 import { Card, CardContent } from "@/components/ui/card";
-
-// Strategy params are stored in the engine's fixed-point convention (1.0 =
-// 1e8). Render them in human units instead of raw integers like "100000000".
-const FIXED_POINT = 1e8;
-const PARAM_LABELS: Record<string, string> = {
-  spreadOffset: "Spread",
-  orderQuantity: "Order Qty",
-  threshold: "Threshold",
-  windowSize: "Window",
-};
-function formatParamValue(key: string, value: unknown): string {
-  if (typeof value !== "number") return String(value);
-  switch (key) {
-    case "spreadOffset":
-    case "threshold":
-      return formatPrice(value / FIXED_POINT);
-    case "orderQuantity":
-      return formatQuantity(value / FIXED_POINT);
-    default:
-      return value.toLocaleString();
-  }
-}
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -186,8 +165,8 @@ export function StrategyCard({
               key={key}
               className="flex justify-between px-1 py-0.5"
             >
-              <span className="text-muted-foreground">{PARAM_LABELS[key] ?? key}</span>
-              <span className="font-mono tabular-nums">{formatParamValue(key, value)}</span>
+              <span className="text-muted-foreground">{paramLabel(key)}</span>
+              <span className="font-mono tabular-nums">{formatParamDisplay(key, value)}</span>
             </div>
           ))}
         </div>
