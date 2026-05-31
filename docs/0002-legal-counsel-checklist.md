@@ -27,7 +27,7 @@ against their own exchange accounts. It is **not**:
 
 **Architecture summary** (relevant for liability scoping):
 
-- Web UI (Vercel) + Postgres (Neon).
+- Web UI (Vercel) + Postgres (Supabase).
 - Trading engine in C++ on a single Oracle Cloud VM. ~80ns p99 risk gate.
 - Users connect via Binance API key (testnet or main) or NSE broker
   credentials. Keys are encrypted at rest in our DB, decrypted only in
@@ -52,7 +52,7 @@ In rough priority order:
 5. **Cookie Policy** (if EU traffic warrants)
 6. **Data Processing Addendum** template for any B2B / enterprise tier
 7. **Subprocessor list** — must be public; current list:
-   - Neon (Postgres host) — US
+   - Supabase (Postgres host) — US-incorporated; data region per Supabase project (currently AWS `ap-south-1` Mumbai)
    - Vercel (web app host) — US
    - Oracle Cloud (engine host) — US/India regions
    - Google (OAuth)
@@ -161,7 +161,7 @@ Risk Disclosure document on first signup?
 2. **MiFID II** — likely N/A for crypto-only operations, but if NSE
    equities are exposed to EU users this applies.
 3. **GDPR**:
-   - Standard Contractual Clauses with US-based subprocessors (Neon,
+   - Standard Contractual Clauses with US-based subprocessors (Supabase,
      Vercel, Oracle, Google, Stripe, PostHog).
    - Article 30 records of processing.
    - Subject access / deletion endpoints.

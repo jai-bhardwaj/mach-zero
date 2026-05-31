@@ -5,26 +5,36 @@ Three free services, zero cost:
 | Component | Service | Free Tier |
 |-----------|---------|-----------|
 | Next.js dashboard | **Vercel** | 100GB bandwidth, auto-deploy |
-| PostgreSQL | **Neon** | 0.5GB storage, serverless |
+| PostgreSQL | **Supabase** | 500MB database, 2GB egress, auto-pauses after 7d idle |
 | C++ engine + QuestDB | **Oracle Cloud** | 4 ARM cores, 24GB RAM, 200GB disk |
+
+> **Free-tier caveat:** Supabase projects that sit idle for 7 days auto-pause; if they stay paused for ~90 days the project becomes eligible for deletion. For anything beyond personal testing either upgrade the plan or keep a lightweight cron pinging the DB.
 
 ---
 
-## 1. Neon PostgreSQL
+## 1. Supabase PostgreSQL
 
-1. Sign up at [neon.tech](https://neon.tech) (GitHub login)
-2. Create a project named `mach-zero`
-3. Copy the connection strings from **Connection Details**:
-   - **Pooled** connection → `DATABASE_URL`
-   - **Direct** connection → `DIRECT_DATABASE_URL`
+1. Sign up at [supabase.com](https://supabase.com) (GitHub login)
+2. **New project** → name it `mach-zero`. Pick a region close to your Vercel deployment (e.g. `ap-south-1` Mumbai if your users are in India, `us-east-1` for the US). Set a strong DB password and save it in your password manager — Supabase only shows it once.
+3. Wait for the project to provision (~2 minutes), then go to **Project Settings → Database → Connection string**. You'll need both:
+   - **Transaction pooler** (port 6543, Supavisor) → use for `DATABASE_URL`. Append `?pgbouncer=true` so Prisma plays nicely with the pooler. This is what runtime serverless functions on Vercel will use.
+   - **Direct connection** (port 5432) → use for `DIRECT_DATABASE_URL`. Prisma migrations need a direct, non-pooled connection.
 
-4. Run migrations locally pointing to Neon:
+   The hostnames look like:
+   - Pooled: `aws-1-<region>.pooler.supabase.com:6543`
+   - Direct: `db.<project-ref>.supabase.co:5432`
+
+4. Run migrations locally pointing to Supabase:
 
 ```bash
 cd apps/web
-DATABASE_URL="your-pooled-url" DIRECT_DATABASE_URL="your-direct-url" npx prisma db push
-DATABASE_URL="your-pooled-url" npx tsx prisma/seed.ts
+DATABASE_URL="<pooled-url>?pgbouncer=true" \
+  DIRECT_DATABASE_URL="<direct-url>" \
+  npx prisma db push
+DATABASE_URL="<pooled-url>?pgbouncer=true" npx tsx prisma/seed.ts
 ```
+
+> If the project gets paused, the DNS for `db.<ref>.supabase.co` may resolve but connections will fail with a pool-side error; if the project has been *deleted*, DNS returns NXDOMAIN and the pooler responds with `tenant/user postgres.<ref> not found`. Either way, the Auth.js callback surfaces this as the generic "Server error" page — check Vercel logs for `AdapterError`.
 
 ---
 
@@ -38,8 +48,8 @@ DATABASE_URL="your-pooled-url" npx tsx prisma/seed.ts
    - **Build Command**: `npx prisma generate && npm run build` (auto from vercel.json)
 
 4. Add environment variables (copy from `.env.production.example`):
-   - `DATABASE_URL` — Neon pooled connection string
-   - `DIRECT_DATABASE_URL` — Neon direct connection string
+   - `DATABASE_URL` — Supabase transaction-pooler connection string (port 6543, with `?pgbouncer=true`)
+   - `DIRECT_DATABASE_URL` — Supabase direct connection string (port 5432)
    - `NEXTAUTH_SECRET` — generate with `openssl rand -base64 32`
    - `NEXTAUTH_URL` — your Vercel URL (e.g., `https://mach-zero.vercel.app`)
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from Google Cloud Console
@@ -143,7 +153,7 @@ On every push to `main`:
        Next.js app        +-----------------+
        (free tier)        | Docker Compose   |
             |             |                  |
-       [Neon DB]          | aeron-driver     |
+       [Supabase DB]      | aeron-driver     |
        PostgreSQL         | gateway (Binance)|
        (free tier)        | engine           |
                           | risk-monitor     |

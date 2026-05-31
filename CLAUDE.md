@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Mach-Zero is a **polyglot monorepo** for an ultra-low-latency algorithmic trading system. Two halves that communicate only over Aeron/QuestDB/HTTP — there is no shared language between them:
 
 - **C++20 engine** (`core/`, `apps/{engine,gateways,persistence,risk-monitor}/`, `common/`) — real-time hot path. Built with CMake + FetchContent, runs on an Oracle Cloud ARM VM inside Docker Compose.
-- **Next.js 16 dashboard** (`apps/web/`) — operator UI. Deployed to Vercel, backed by Neon Postgres (via Prisma) + QuestDB (read-only, for trades/risk events).
+- **Next.js 16 dashboard** (`apps/web/`) — operator UI. Deployed to Vercel, backed by Supabase Postgres (via Prisma) + QuestDB (read-only, for trades/risk events).
 - **Python research bridge** (`research/`) — backtesting and Jupyter notebooks that read engine state via shared memory.
 
 `apps/web/CLAUDE.md` has detailed Next.js/React conventions — read it before editing anything under `apps/web/`.
@@ -95,7 +95,7 @@ Or `cd infra && docker compose up -d` (use `docker-compose.prod.yml` on the Orac
 
 `apps/web/` is **Next.js 16 App Router with Server Components by default**. The web app reads from two data sources:
 
-- **Prisma/Postgres (Neon)** — user/tenant/strategy/account config. Write path. `lib/db.ts` is `import "server-only"`.
+- **Prisma/Postgres (Supabase)** — user/tenant/strategy/account config. Write path. `lib/db.ts` is `import "server-only"`. `DATABASE_URL` uses the Supabase Supavisor pooler (port 6543, `?pgbouncer=true`); `DIRECT_DATABASE_URL` uses the direct host (port 5432) for Prisma migrations.
 - **QuestDB** — trades, quotes, risk events. Read-only from web. `lib/questdb.ts` is `import "server-only"`.
 
 The web app talks to the live engine via HTTP to the Oracle VM: kill switch API (port 8080) and the Python bridge WebSocket (port 3002, `NEXT_PUBLIC_BRIDGE_WS_URL`). Never import engine code into the web app — they share no types.
@@ -114,7 +114,7 @@ Roles: `SUPER_ADMIN`, `ADMIN`, `RISK_MANAGER`, `TRADER`, `VIEWER`. Enforced by `
 
 - **Vercel** auto-deploys `apps/web/` on push to `main`. Root Directory set to `apps/web`. Build command `npx prisma generate && npm run build` (per `vercel.json`).
 - **Oracle VM** is updated via GitHub Actions SSHing in and running `docker compose -f infra/docker-compose.prod.yml up -d --build`.
-- **Neon** migrations are run manually from a dev machine with `DATABASE_URL` + `DIRECT_DATABASE_URL` pointed at Neon.
+- **Supabase** migrations are run manually from a dev machine with `DATABASE_URL` + `DIRECT_DATABASE_URL` pointed at Supabase. Supabase free-tier projects auto-pause after 7 days of inactivity and are eligible for deletion after ~90 days paused — keep at least one cron-equivalent ping or upgrade the plan for production projects.
 
 Full step-by-step in `DEPLOY.md`. Environment variable list is in `apps/web/.env.production.example`.
 
