@@ -10,6 +10,7 @@
 #include <cstring>
 #include <string>
 #include <cmath>
+#include <chrono>
 
 namespace mach_zero::gateway {
 
@@ -163,6 +164,44 @@ public:
             .venue(Venue::Binance)
             .sequenceNumber(lastUpdateId)
             .timestamp(timestampNs);
+
+        return Quote::sbeBlockAndHeaderLength();
+    }
+
+    // Parse a Binance bookTicker payload into an SBE Quote (best bid/ask).
+    // Format: {"u":<id>,"s":"BTCUSDT","b":"<bid>","B":"<bidQty>","a":"<ask>","A":"<askQty>"}
+    size_t parseBookTicker(const char* json, size_t jsonLen, char* outBuf, size_t outBufLen) {
+        simdjson::padded_string padded(json, jsonLen);
+        auto doc = parser_.iterate(padded);
+
+        std::string_view symbol;
+        if (doc["s"].get_string().get(symbol)) return 0;
+        uint64_t symbolId = symbolMap_.toId(symbol);
+        if (symbolId == 0) return 0;
+
+        std::string_view bidStr, bidQtyStr, askStr, askQtyStr;
+        if (doc["b"].get_string().get(bidStr)) return 0;
+        if (doc["B"].get_string().get(bidQtyStr)) return 0;
+        if (doc["a"].get_string().get(askStr)) return 0;
+        if (doc["A"].get_string().get(askQtyStr)) return 0;
+
+        uint64_t updateId = 0;
+        doc["u"].get_uint64().get(updateId);
+
+        uint64_t nowNs = static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+
+        Quote quote;
+        quote.wrapAndApplyHeader(outBuf, 0, static_cast<uint64_t>(outBufLen));
+        quote.symbolId(symbolId)
+            .bidPrice(toFixedPoint(bidStr))
+            .bidQuantity(toFixedPointUnsigned(bidQtyStr))
+            .askPrice(toFixedPoint(askStr))
+            .askQuantity(toFixedPointUnsigned(askQtyStr))
+            .venue(Venue::Binance)
+            .sequenceNumber(updateId)
+            .timestamp(nowNs);
 
         return Quote::sbeBlockAndHeaderLength();
     }
