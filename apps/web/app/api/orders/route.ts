@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryPaginated, buildOrderBy, QuestDBUnavailableError } from "@/lib/questdb";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
-import { validateOrderStatus, validateTimestamp } from "@/lib/questdb-sanitize";
+import { validateOrderStatus, validateTimestamp, validateTradingMode } from "@/lib/questdb-sanitize";
 import { ORDERS_SORTABLE_COLUMNS } from "@/lib/columns";
-import { attachStrategyInfo } from "@/lib/enrich-executions";
+import { attachStrategyInfo, strategyEngineIdsByMode } from "@/lib/enrich-executions";
 import type { Order } from "@/types";
 
 export async function GET(request: NextRequest) {
@@ -34,8 +34,16 @@ export async function GET(request: NextRequest) {
   if (Number.isFinite(parsedSide)) conditions.push(`side = ${parsedSide}`);
   const validStatus = status ? validateOrderStatus(status) : null;
   if (validStatus) conditions.push(`status = '${validStatus}'`);
-  // trading_mode is not stored on the QuestDB row — it's joined from the
-  // strategy below, so there's no server-side trading_mode filter here.
+  // trading_mode isn't on the QuestDB row — resolve the requested mode to this
+  // tenant's matching strategy ids and filter on strategy_id.
+  const validMode = validateTradingMode(params.get("trading_mode") ?? "");
+  if (validMode) {
+    const ids = await strategyEngineIdsByMode(session.tenantId, validMode as "MOCK" | "LIVE");
+    if (ids.length === 0) {
+      return NextResponse.json({ data: [], total: 0, offset, limit });
+    }
+    conditions.push(`strategy_id IN (${ids.map((i) => `'${i}'`).join(",")})`);
+  }
   const start = params.get("start");
   const validStart = start ? validateTimestamp(start) : null;
   if (validStart) conditions.push(`timestamp >= '${validStart}'`);

@@ -9,6 +9,23 @@ import { prisma } from "@/lib/db";
  * tenant so one tenant can never resolve another tenant's strategy names — and
  * fills in strategy_name, account_name, and the authoritative trading_mode.
  */
+/**
+ * Resolve the engine strategy ids (as strings, matching QuestDB's strategy_id
+ * column) for a tenant's strategies in a given trading mode. Used to filter
+ * executions by Paper/Live — the mode lives in Postgres, not on the QuestDB
+ * row. Returns [] if none match (caller should then return no rows).
+ */
+export async function strategyEngineIdsByMode(
+  tenantId: string,
+  mode: "MOCK" | "LIVE"
+): Promise<string[]> {
+  const strategies = await prisma.strategyConfig.findMany({
+    where: { tenantId, tradingMode: mode },
+    select: { engineId: true },
+  });
+  return strategies.map((s) => String(s.engineId));
+}
+
 export async function attachStrategyInfo<
   T extends { strategy_id?: string; trading_mode?: string }
 >(rows: T[], tenantId: string): Promise<(T & { strategy_name?: string; account_name?: string })[]> {

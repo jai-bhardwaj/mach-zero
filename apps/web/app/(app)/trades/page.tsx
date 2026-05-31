@@ -76,8 +76,9 @@ const RISK_FILTERS: FilterConfig[] = [
 // Column labels for column toggle dropdowns
 const TRADE_COLUMN_LABELS: Record<string, string> = {
   timestamp: "Time",
-  symbol_id: "Symbol",
-  venue: "Venue",
+  account_name: "Account",
+  symbol_id: "Market",
+  strategy_name: "Strategy",
   side: "Side",
   price: "Price",
   quantity: "Quantity",
@@ -87,7 +88,8 @@ const TRADE_COLUMN_LABELS: Record<string, string> = {
 const ORDER_COLUMN_LABELS: Record<string, string> = {
   timestamp: "Time",
   order_id: "Order ID",
-  symbol_id: "Symbol",
+  symbol_id: "Market",
+  strategy_name: "Strategy",
   side: "Side",
   price: "Price",
   quantity: "Quantity",
@@ -106,8 +108,9 @@ const RISK_COLUMN_LABELS: Record<string, string> = {
 // Export column definitions for CSV export
 const TRADE_EXPORT_COLUMNS = [
   { key: "timestamp", label: "Time" },
-  { key: "symbol_id", label: "Symbol" },
-  { key: "venue", label: "Venue" },
+  { key: "account_name", label: "Account" },
+  { key: "symbol_id", label: "Market" },
+  { key: "strategy_name", label: "Strategy" },
   { key: "side", label: "Side" },
   { key: "price", label: "Price" },
   { key: "quantity", label: "Quantity" },
@@ -117,7 +120,8 @@ const TRADE_EXPORT_COLUMNS = [
 const ORDER_EXPORT_COLUMNS = [
   { key: "timestamp", label: "Time" },
   { key: "order_id", label: "Order ID" },
-  { key: "symbol_id", label: "Symbol" },
+  { key: "symbol_id", label: "Market" },
+  { key: "strategy_name", label: "Strategy" },
   { key: "side", label: "Side" },
   { key: "price", label: "Price" },
   { key: "quantity", label: "Quantity" },
