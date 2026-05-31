@@ -1,6 +1,7 @@
 #include <strategy/StrategyEngine.h>
 #include <strategy/SimpleSpreadStrategy.h>
 #include <strategy/MomentumStrategy.h>
+#include <strategy/StrategyLoader.h>
 #include <risk/RiskEngine.h>
 #include <risk/TenantLimits.h>
 #include <common/ipc/AeronPublisher.h>
@@ -20,6 +21,7 @@
 #include <atomic>
 #include <csignal>
 #include <memory>
+#include <vector>
 
 using namespace mach_zero::strategy;
 using namespace mach_zero::risk;
@@ -54,19 +56,37 @@ int main() {
     // Strategy engine
     StrategyEngine engine;
 
-    // Register strategies
-    SimpleSpreadStrategy::Config spreadCfg;
-    spreadCfg.symbolId = 1; // BTCUSDT
-    spreadCfg.spreadOffset = 5000000000LL; // 50.0 offset
-    spreadCfg.orderQuantity = 10000000ULL; // 0.1 BTC
-    engine.addStrategy(std::make_shared<SimpleSpreadStrategy>(spreadCfg));
+    // Load user-defined strategies from config (written from the dashboard/DB).
+    // Fail-fast: a bad strategy config is not a valid state for a financial system.
+    const char* stratPath = std::getenv("STRATEGIES_FILE");
+    if (stratPath && *stratPath) {
+        std::vector<std::shared_ptr<Strategy>> loadedStrategies;
+        if (!loadStrategiesFromFile(stratPath, loadedStrategies)) {
+            return 2;  // loader already printed a FATAL diagnostic
+        }
+        for (auto& s : loadedStrategies) engine.addStrategy(s);
+        MZ_INFO(("Loaded " + std::to_string(loadedStrategies.size()) +
+                 " strategies from STRATEGIES_FILE").c_str());
+    }
 
-    MomentumStrategy::Config momCfg;
-    momCfg.symbolId = 2; // ETHUSDT
-    momCfg.windowSize = 20;
-    momCfg.threshold = 500000000LL; // 5.0
-    momCfg.orderQuantity = 100000000ULL; // 1.0 ETH
-    engine.addStrategy(std::make_shared<MomentumStrategy>(momCfg));
+    // Demo strategies are gated behind RUN_DEMO_STRATEGIES (default off):
+    // they were previously always-on and flooded the risk gate with orders
+    // against an empty book (~10/s, tens of millions of rejects over weeks).
+    if (std::getenv("RUN_DEMO_STRATEGIES")) {
+        SimpleSpreadStrategy::Config spreadCfg;
+        spreadCfg.symbolId = 1; // BTCUSDT
+        spreadCfg.spreadOffset = 5000000000LL; // 50.0 offset
+        spreadCfg.orderQuantity = 10000000ULL; // 0.1 BTC
+        engine.addStrategy(std::make_shared<SimpleSpreadStrategy>(spreadCfg));
+
+        MomentumStrategy::Config momCfg;
+        momCfg.symbolId = 2; // ETHUSDT
+        momCfg.windowSize = 20;
+        momCfg.threshold = 500000000LL; // 5.0
+        momCfg.orderQuantity = 100000000ULL; // 1.0 ETH
+        engine.addStrategy(std::make_shared<MomentumStrategy>(momCfg));
+        MZ_INFO("Demo strategies enabled (RUN_DEMO_STRATEGIES set)");
+    }
 
     // Risk engine
     RiskEngine riskEngine;
