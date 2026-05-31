@@ -121,16 +121,19 @@ describe("StrategyCard", () => {
       expect(screen.queryByText("Position")).not.toBeInTheDocument();
     });
 
-    it("displays strategy parameters", () => {
+    it("displays strategy parameters in human units", () => {
+      // spreadOffset is stored in fixed-point (1e8); 100000000 == 1.0. The card
+      // labels it "Spread" and renders the human value, not the raw integer.
       render(
         <StrategyCard
-          strategy={makeStrategy({ params: { spreadOffset: 100 } })}
+          strategy={makeStrategy({ params: { spreadOffset: 100000000 } })}
           {...defaultProps}
         />
       );
 
-      expect(screen.getByText("spreadOffset")).toBeInTheDocument();
-      expect(screen.getByText("100")).toBeInTheDocument();
+      expect(screen.getByText("Spread")).toBeInTheDocument();
+      expect(screen.getByText("1.00")).toBeInTheDocument();
+      expect(screen.queryByText("spreadOffset")).not.toBeInTheDocument();
     });
 
     it("displays risk limit badges when set", () => {
