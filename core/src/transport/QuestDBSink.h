@@ -108,6 +108,33 @@ public:
         maybeFlush();
     }
 
+    // Write a tenant execution (fill) to the trades table, attributed to the
+    // tenant (engineId) and the originating strategy. strategy_id is a STRING
+    // column, so it's a quoted field; the web joins it to Postgres for the
+    // strategy/account names and trading mode.
+    void writeFill(uint32_t tenantId, uint64_t strategyId, uint64_t symbolId,
+                   uint8_t side, int64_t price, uint64_t quantity, uint8_t venue,
+                   uint64_t timestampNanos) {
+        buffer_.append("trades tenant_id=\"");
+        buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",strategy_id=\"");
+        buffer_.append(std::to_string(strategyId));
+        buffer_.append("\",symbol_id=");
+        buffer_.append(std::to_string(symbolId));
+        buffer_.append("i,venue=");
+        buffer_.append(std::to_string(venue));
+        buffer_.append("i,price=");
+        appendFixedPoint(price);
+        buffer_.append(",quantity=");
+        appendFixedPoint(static_cast<int64_t>(quantity));
+        buffer_.append(",side=");
+        buffer_.append(std::to_string(side));
+        buffer_.append("i ");
+        buffer_.append(std::to_string(timestampNanos));
+        buffer_.push_back('\n');
+        maybeFlush();
+    }
+
     // Write an order event in ILP format.
     void writeOrder(uint32_t tenantId, uint64_t orderId, uint64_t symbolId,
                     uint8_t side, int64_t price, uint64_t quantity,

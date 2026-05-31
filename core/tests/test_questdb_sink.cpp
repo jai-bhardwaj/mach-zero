@@ -131,3 +131,20 @@ TEST(QuestDBSink, RiskEventLineHasNoNumericTags) {
     EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
     EXPECT_NE(line.find("order_id=100i"), std::string::npos);
 }
+
+TEST(QuestDBSink, FillLineIsTenantScopedWithStrategyId) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    // tenant 5's fill, strategy 9, BTC sell @ 50000, qty 0.1
+    sink.writeFill(/*tenantId=*/5, /*strategyId=*/9, /*symbolId=*/1, /*side=*/2,
+                   /*price=*/5000000000000LL, /*quantity=*/10000000ULL,
+                   /*venue=*/1, 1000000000ULL);
+    std::string line(sink.bufferContents());
+    EXPECT_EQ(measurementOf(line), "trades");
+    // Attributed to the tenant (not public tenant_id=0) and the strategy.
+    EXPECT_NE(line.find("tenant_id=\"5\""), std::string::npos);
+    EXPECT_NE(line.find("strategy_id=\"9\""), std::string::npos);
+    EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
+    EXPECT_NE(line.find("side=2i"), std::string::npos);
+}
