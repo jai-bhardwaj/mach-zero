@@ -124,6 +124,7 @@
         <field name="venue"          id="9"  type="Venue"/>
         <field name="timestamp"      id="10" type="Timestamp"/>
         <field name="tenantId"       id="11" type="uint32"/>
+        <field name="strategyId"     id="12" type="uint64"/>
     </sbe:message>
 
     <sbe:message name="OrderAck" id="11" description="Order Acknowledgement">

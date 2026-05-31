@@ -98,7 +98,8 @@ TEST(SbeRoundtrip, OrderRequest) {
         .timeInForce(TimeInForce::GTC)
         .venue(Venue::Binance)
         .timestamp(1111111111ULL)
-        .tenantId(42u);
+        .tenantId(42u)
+        .strategyId(7777u);
 
     MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
     EXPECT_EQ(hdr.templateId(), OrderRequest::sbeTemplateId());
@@ -119,6 +120,7 @@ TEST(SbeRoundtrip, OrderRequest) {
     EXPECT_EQ(decoder.venue(), Venue::Binance);
     EXPECT_EQ(decoder.timestamp(), 1111111111ULL);
     EXPECT_EQ(decoder.tenantId(), 42u);
+    EXPECT_EQ(decoder.strategyId(), 7777u);
 }
 
 TEST(SbeRoundtrip, OrderAck) {
