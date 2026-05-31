@@ -81,3 +81,53 @@ TEST(QuestDBSink, WriteRiskEventIncludesTenantId) {
     EXPECT_EQ(sink.pendingLines(), 1u);
     EXPECT_GT(sink.bufferSize(), 0u);
 }
+
+namespace {
+// The ILP "measurement" is everything before the first space: `name[,tag=v...]`.
+// Our schema types symbol_id/venue/order_id as LONG/INT, so they MUST be
+// fields (after the space), never tags — a numeric column written as a tag is
+// SYMBOL-typed and QuestDB rejects the line, tearing down the WAL writer.
+std::string measurementOf(std::string_view line) {
+    auto sp = line.find(' ');
+    return std::string(line.substr(0, sp));
+}
+}  // namespace
+
+TEST(QuestDBSink, TradeLineHasNoNumericTags) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    sink.writeTrade(0, 1, 5000000000000LL, 100000000ULL, 1, 1, 1000000000ULL);
+
+    std::string line(sink.bufferContents());
+    // Measurement must be just the table name — no tags (no comma before the space).
+    EXPECT_EQ(measurementOf(line), "trades");
+    // symbol_id/venue must appear as integer fields (=Ni), not tags.
+    EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
+    EXPECT_NE(line.find("venue=1i"), std::string::npos);
+}
+
+TEST(QuestDBSink, OrderLineHasNoNumericTags) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    sink.writeOrder(42, 100, 1, 1, 5000000000000LL, 100000000ULL, "filled", 1000000000ULL);
+
+    std::string line(sink.bufferContents());
+    EXPECT_EQ(measurementOf(line), "orders");
+    EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
+    EXPECT_NE(line.find("order_id=100i"), std::string::npos);
+    EXPECT_NE(line.find("status=\"filled\""), std::string::npos);
+}
+
+TEST(QuestDBSink, RiskEventLineHasNoNumericTags) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    sink.writeRiskEvent(7, 100, 1, "PositionLimit", 1000000000ULL);
+
+    std::string line(sink.bufferContents());
+    EXPECT_EQ(measurementOf(line), "risk_events");
+    EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
+    EXPECT_NE(line.find("order_id=100i"), std::string::npos);
+}

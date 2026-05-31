@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <chrono>
 #include <cstdint>
@@ -200,6 +201,9 @@ public:
 
     size_t pendingLines() const { return lineCount_; }
     size_t bufferSize() const { return buffer_.size(); }
+
+    // Read-only view of the pending ILP buffer, for tests/diagnostics.
+    std::string_view bufferContents() const { return buffer_; }
 
 private:
     void appendTag(const char* key, uint64_t value) {
