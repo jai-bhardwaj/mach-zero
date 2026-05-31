@@ -9,12 +9,15 @@
 #include <mach_zero_market_data/OrderRequest.h>
 #include <mach_zero_market_data/OrderAck.h>
 #include <mach_zero_market_data/OrderReject.h>
+#include <mach_zero_market_data/OrderStatus.h>
 
 #include <iostream>
 #include <atomic>
 #include <csignal>
 #include <thread>
 #include <cstdlib>
+#include <unordered_map>
+#include <cstdint>
 
 using namespace mach_zero::transport;
 using namespace mach_zero::ipc;
@@ -62,6 +65,27 @@ int main() {
     uint64_t tradeCount = 0, orderCount = 0, ackCount = 0;
     uint64_t reconnectCounter = 0;
 
+    // OrderAck carries no `side`, so correlate it from the validated
+    // OrderRequest we already see on VALIDATED_ORDER. Bounded to open orders:
+    // entries are erased on a terminal ack (Filled/Cancelled/Rejected).
+    std::unordered_map<uint64_t, uint8_t> orderSide;
+
+    // Map the SBE OrderStatus to the lowercase status SYMBOL the web expects,
+    // instead of collapsing every ack to "acked" (which hid fills behind
+    // receipt acks).
+    auto ackStatusString = [](uint8_t raw) -> const char* {
+        switch (raw) {
+            case OrderStatus::Value::New:           return "new";
+            case OrderStatus::Value::PartialFill:   return "partial";
+            case OrderStatus::Value::Filled:        return "filled";
+            case OrderStatus::Value::Cancelled:     return "cancelled";
+            case OrderStatus::Value::Rejected:      return "rejected";
+            case OrderStatus::Value::PendingNew:    return "pending_new";
+            case OrderStatus::Value::PendingCancel: return "pending_cancel";
+            default:                                return "acked";
+        }
+    };
+
     std::cerr << "Persistence service running. Press Ctrl+C to stop." << std::endl;
 
     while (running.load()) {
@@ -108,6 +132,7 @@ int main() {
                     sink.writeOrder(req.tenantId(), req.orderId(), req.symbolId(),
                                    req.sideRaw(), req.price(), req.quantity(),
                                    "validated", req.timestamp());
+                    orderSide[req.orderId()] = req.sideRaw();
                     ++orderCount;
                 }
             }, 50);
@@ -124,9 +149,20 @@ int main() {
                     OrderAck ack;
                     ack.wrapForDecode(data, MessageHeader::encodedLength(),
                                       hdr.blockLength(), hdr.version(), length);
-                    sink.writeOrder(ack.tenantId(), ack.orderId(), ack.symbolId(), 0,
-                                   ack.avgPrice(), ack.filledQuantity(), "acked",
-                                   ack.timestamp());
+                    uint8_t statusRaw = ack.statusRaw();
+                    // Recover the side from the originating validated order.
+                    uint8_t side = 0;
+                    auto sideIt = orderSide.find(ack.orderId());
+                    if (sideIt != orderSide.end()) side = sideIt->second;
+                    sink.writeOrder(ack.tenantId(), ack.orderId(), ack.symbolId(), side,
+                                   ack.avgPrice(), ack.filledQuantity(),
+                                   ackStatusString(statusRaw), ack.timestamp());
+                    // Drop correlation state once the order can no longer fill.
+                    if (statusRaw == OrderStatus::Value::Filled ||
+                        statusRaw == OrderStatus::Value::Cancelled ||
+                        statusRaw == OrderStatus::Value::Rejected) {
+                        orderSide.erase(ack.orderId());
+                    }
                     ++ackCount;
                 } else if (hdr.templateId() == OrderReject::sbeTemplateId()) {
                     OrderReject reject;

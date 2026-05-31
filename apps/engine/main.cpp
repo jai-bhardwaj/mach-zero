@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <thread>
+#include <chrono>
 #include <atomic>
 #include <csignal>
 #include <memory>
@@ -113,7 +114,19 @@ int main() {
 
     std::cerr << "Strategy engine running. Press Ctrl+C to stop." << std::endl;
 
+    // The OrderRate check counts orders per (tenant, symbol) and must have its
+    // window rolled, or maxOrderRatePerSec degenerates into a lifetime cap that
+    // permanently halts a tenant once it hits the limit. Roll every second.
+    auto lastRateReset = std::chrono::steady_clock::now();
+
     while (running.load()) {
+        // Roll the per-second order-rate window.
+        auto nowTs = std::chrono::steady_clock::now();
+        if (nowTs - lastRateReset >= std::chrono::seconds(1)) {
+            riskEngine.resetRateCounters();
+            lastRateReset = nowTs;
+        }
+
         // Poll market data
         mdSubscriber.poll(
             [&](aeron::concurrent::AtomicBuffer& buffer, aeron::util::index_t offset,
