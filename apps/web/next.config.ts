@@ -2,12 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Enables React's View Transitions API so the "Native" navigation-transition
-  // option in Settings can drive a browser-native cross-fade. Experimental in
-  // Next 16; the other transition options (slide/fade/none) work without it.
-  experimental: {
-    viewTransition: true,
-  },
   // Disable the dev-tools indicator: it floats in a bottom corner and overlaps
   // real controls there — the sidebar Sign out/collapse (bottom-left) and the
   // table pagination (bottom-right). It's a dev-only overlay (never in prod),

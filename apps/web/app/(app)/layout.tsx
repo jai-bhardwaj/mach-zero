@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { NavTransitionApplier } from "@/components/layout/NavTransitionApplier";
 import { TradingModeProvider } from "@/contexts/TradingModeContext";
 
 export default async function AppLayout({
@@ -37,7 +36,6 @@ export default async function AppLayout({
 
   return (
     <TradingModeProvider>
-      <NavTransitionApplier />
       {/* h-screen (100vh) is a definite, universally-supported viewport height;
           overflow-hidden pins the whole app shell to the viewport so only inner
           regions (nav, main) scroll — never the page. The sidebar wrapper gets

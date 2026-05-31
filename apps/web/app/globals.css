@@ -293,25 +293,10 @@ main {
   animation: fadeIn 150ms ease-out;
 }
 
-/* The swappable sidebar nav region (.nav-swap) remounts when crossing the
-   app<->settings boundary; the user's preference on
-   <html data-nav-transition="slide|fade|none|native"> decides how it animates.
-   Default (attribute absent, pre-hydration) = slide, so there is no flash. */
-.nav-swap[data-nav-dir="right"] { animation: navSlideInRight 180ms ease-out; }
-.nav-swap[data-nav-dir="left"] { animation: navSlideInLeft 180ms ease-out; }
-
-html[data-nav-transition="fade"] .nav-swap { animation: fadeIn 150ms ease-out; }
-
-html[data-nav-transition="none"] .nav-swap,
-html[data-nav-transition="none"] main { animation: none; }
-
-html[data-nav-transition="native"] .nav-swap,
-html[data-nav-transition="native"] main { animation: none; }
-
 /* Respect users who prefer reduced motion — no slide/fade transitions. */
 @media (prefers-reduced-motion: reduce) {
   main,
-  .nav-swap {
+  [class*="navSlideIn"] {
     animation: none !important;
   }
 }
