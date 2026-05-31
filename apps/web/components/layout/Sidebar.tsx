@@ -232,16 +232,22 @@ export function Sidebar() {
           {!collapsed && <span>Sign out</span>}
         </button>
 
-        {/* Collapse toggle */}
+        {/* Collapse toggle — labelled so it's a discoverable control, not a
+            faint unlabelled chevron at the bottom edge. */}
         <button
           onClick={toggle}
-          className="flex w-full items-center justify-center rounded-md py-1 text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "flex w-full items-center rounded-md px-2.5 py-[5px] text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors",
+            collapsed ? "justify-center" : "gap-2.5"
+          )}
         >
           {collapsed ? (
-            <ChevronsRight className="h-4 w-4" />
+            <ChevronsRight className="h-4 w-4 shrink-0" />
           ) : (
-            <ChevronsLeft className="h-4 w-4" />
+            <ChevronsLeft className="h-4 w-4 shrink-0" />
           )}
+          {!collapsed && <span>Collapse</span>}
         </button>
       </div>
     </aside>
