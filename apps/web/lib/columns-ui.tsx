@@ -285,9 +285,15 @@ export function getRiskEventColumns(): ColumnDef<RiskEvent, unknown>[] {
     {
       accessorKey: "reason",
       header: ({ column }) => <DataTableSortHeader column={column} title="Reason" />,
-      cell: ({ getValue }) => (
-        <span className="text-negative">{getValue<string>()}</span>
-      ),
+      cell: ({ getValue }) => {
+        // Persistence stores a stable snake_case reject reason (price_band,
+        // position_limit, …); render it as readable Title Case.
+        const raw = getValue<string>();
+        const label = raw
+          ? raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+          : "—";
+        return <span className="text-negative">{label}</span>;
+      },
       enableSorting: true,
     },
     {

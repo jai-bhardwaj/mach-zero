@@ -10,6 +10,7 @@
 #include <mach_zero_market_data/OrderAck.h>
 #include <mach_zero_market_data/OrderReject.h>
 #include <mach_zero_market_data/OrderStatus.h>
+#include <mach_zero_market_data/RejectReason.h>
 
 #include <iostream>
 #include <atomic>
@@ -81,6 +82,26 @@ int main() {
             case OrderStatus::Value::PendingNew:    return "pending_new";
             case OrderStatus::Value::PendingCancel: return "pending_cancel";
             default:                                return "acked";
+        }
+    };
+
+    // Decode the OrderReject.rejectReason enum to a stable snake_case code so the
+    // risk-events table records WHY an order was rejected (PriceBand,
+    // PositionLimit, etc.) instead of a generic "rejected" for every row. The web
+    // formats this code for display.
+    auto rejectReasonString = [](uint8_t raw) -> const char* {
+        switch (raw) {
+            case RejectReason::Value::None:              return "none";
+            case RejectReason::Value::PriceBand:         return "price_band";
+            case RejectReason::Value::PositionLimit:     return "position_limit";
+            case RejectReason::Value::OrderRate:         return "order_rate";
+            case RejectReason::Value::MaxOrderSize:      return "max_order_size";
+            case RejectReason::Value::KillSwitch:        return "kill_switch";
+            case RejectReason::Value::InsufficientFunds: return "insufficient_funds";
+            case RejectReason::Value::InvalidSymbol:     return "invalid_symbol";
+            case RejectReason::Value::ExchangeReject:    return "exchange_reject";
+            case RejectReason::Value::InvalidTenant:     return "invalid_tenant";
+            default:                                     return "rejected";
         }
     };
 
@@ -168,7 +189,9 @@ int main() {
                     reject.wrapForDecode(data, MessageHeader::encodedLength(),
                                           hdr.blockLength(), hdr.version(), length);
                     sink.writeRiskEvent(reject.tenantId(), reject.orderId(),
-                                        reject.symbolId(), "rejected", reject.timestamp());
+                                        reject.symbolId(),
+                                        rejectReasonString(reject.rejectReasonRaw()),
+                                        reject.timestamp());
                 }
             }, 50);
 
