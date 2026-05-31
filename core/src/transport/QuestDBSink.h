@@ -162,11 +162,16 @@ public:
         maybeFlush();
     }
 
-    // Write a risk event in ILP format.
-    void writeRiskEvent(uint32_t tenantId, uint64_t orderId, uint64_t symbolId,
-                        const char* reason, uint64_t timestampNanos) {
+    // Write a risk event in ILP format. strategyId attributes the rejection to
+    // the originating strategy so the web can join it to the strategy's
+    // name/account/mode (parity with the orders/trades tables).
+    void writeRiskEvent(uint32_t tenantId, uint64_t strategyId, uint64_t orderId,
+                        uint64_t symbolId, const char* reason,
+                        uint64_t timestampNanos) {
         buffer_.append("risk_events tenant_id=\"");
         buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",strategy_id=\"");
+        buffer_.append(std::to_string(strategyId));
         buffer_.append("\",symbol_id=");
         buffer_.append(std::to_string(symbolId));
         buffer_.append("i,order_id=");

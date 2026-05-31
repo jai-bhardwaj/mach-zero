@@ -107,6 +107,7 @@ const RISK_COLUMN_LABELS: Record<string, string> = {
   timestamp: "Time",
   order_id: "Order ID",
   symbol_id: "Symbol",
+  strategy_name: "Strategy",
   reason: "Reason",
   trading_mode: "Mode",
 };
@@ -139,6 +140,8 @@ const RISK_EXPORT_COLUMNS = [
   { key: "timestamp", label: "Time" },
   { key: "order_id", label: "Order ID" },
   { key: "symbol_id", label: "Symbol" },
+  { key: "strategy_name", label: "Strategy" },
+  { key: "account_name", label: "Account" },
   { key: "reason", label: "Reason" },
   { key: "trading_mode", label: "Mode" },
 ];

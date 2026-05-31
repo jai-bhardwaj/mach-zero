@@ -98,6 +98,8 @@ export interface RiskEvent {
   order_id: number;
   reason: string;
   strategy_id?: string;
+  strategy_name?: string;
+  account_name?: string;
   trading_mode?: string;
   timestamp: string;
 }

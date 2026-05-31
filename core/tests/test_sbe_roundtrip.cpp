@@ -168,7 +168,8 @@ TEST(SbeRoundtrip, OrderReject) {
         .venue(Venue::NSE)
         .timestamp(3333333333ULL)
         .tenantId(13u)
-        .symbolId(2u);
+        .symbolId(2u)
+        .strategyId(8888u);
 
     MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
     OrderReject decoder;
@@ -181,6 +182,7 @@ TEST(SbeRoundtrip, OrderReject) {
     EXPECT_EQ(decoder.venue(), Venue::NSE);
     EXPECT_EQ(decoder.tenantId(), 13u);
     EXPECT_EQ(decoder.symbolId(), 2u);
+    EXPECT_EQ(decoder.strategyId(), 8888u);
 }
 
 TEST(SbeRoundtrip, CancelRequest) {

@@ -7,6 +7,7 @@ import {
   validateTimestamp,
 } from "@/lib/questdb-sanitize";
 import { RISK_EVENTS_SORTABLE_COLUMNS } from "@/lib/columns";
+import { attachStrategyInfo, strategyEngineIdsByMode } from "@/lib/enrich-executions";
 import type { RiskEvent } from "@/types";
 
 export async function GET(request: NextRequest) {
@@ -37,9 +38,16 @@ export async function GET(request: NextRequest) {
   if (validReason) conditions.push(`reason = '${validReason}'`);
   const validStart = start ? validateTimestamp(start) : null;
   if (validStart) conditions.push(`timestamp >= '${validStart}'`);
-  const tradingMode = params.get("trading_mode");
-  const validMode = tradingMode ? validateTradingMode(tradingMode) : null;
-  if (validMode) conditions.push(`trading_mode = '${validMode}'`);
+  // trading_mode isn't on the QuestDB row — resolve the requested mode to this
+  // tenant's matching strategy ids and filter on strategy_id (same as orders).
+  const validMode = validateTradingMode(params.get("trading_mode") ?? "");
+  if (validMode) {
+    const ids = await strategyEngineIdsByMode(session.tenantId, validMode as "MOCK" | "LIVE");
+    if (ids.length === 0) {
+      return NextResponse.json({ data: [], total: 0, offset, limit });
+    }
+    conditions.push(`strategy_id IN (${ids.map((i) => `'${i}'`).join(",")})`);
+  }
   const end = params.get("end");
   const validEnd = end ? validateTimestamp(end) : null;
   if (validEnd) conditions.push(`timestamp <= '${validEnd}'`);
@@ -56,6 +64,11 @@ export async function GET(request: NextRequest) {
       offset,
       orderBy
     );
+
+    // Attribute each rejection to its strategy/account/mode (tenant-scoped),
+    // matching the orders/trades tabs.
+    result.data = await attachStrategyInfo(result.data, session.tenantId);
+
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof QuestDBUnavailableError) {

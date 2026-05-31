@@ -76,8 +76,8 @@ TEST(QuestDBSink, WriteRiskEventIncludesTenantId) {
     cfg.batchSize = 1000;
     QuestDBSink sink(cfg);
 
-    sink.writeRiskEvent(/*tenantId=*/7, /*orderId=*/100, /*symbolId=*/1,
-                        "PositionLimit", 1000000000ULL);
+    sink.writeRiskEvent(/*tenantId=*/7, /*strategyId=*/55, /*orderId=*/100,
+                        /*symbolId=*/1, "PositionLimit", 1000000000ULL);
     EXPECT_EQ(sink.pendingLines(), 1u);
     EXPECT_GT(sink.bufferSize(), 0u);
 }
@@ -125,12 +125,14 @@ TEST(QuestDBSink, RiskEventLineHasNoNumericTags) {
     QuestDBSink::Config cfg;
     cfg.batchSize = 1000;
     QuestDBSink sink(cfg);
-    sink.writeRiskEvent(7, 100, 1, "PositionLimit", 1000000000ULL);
+    sink.writeRiskEvent(7, 55, 100, 1, "PositionLimit", 1000000000ULL);
 
     std::string line(sink.bufferContents());
     EXPECT_EQ(measurementOf(line), "risk_events");
     EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
     EXPECT_NE(line.find("order_id=100i"), std::string::npos);
+    // strategy_id attributes the rejection; written as a string field, not a tag.
+    EXPECT_NE(line.find("strategy_id=\"55\""), std::string::npos);
 }
 
 TEST(QuestDBSink, FillLineIsTenantScopedWithStrategyId) {

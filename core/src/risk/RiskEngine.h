@@ -86,7 +86,8 @@ public:
                 std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count()))
             .tenantId(order.tenantId())
-            .symbolId(order.symbolId());
+            .symbolId(order.symbolId())
+            .strategyId(order.strategyId());
         return OrderReject::sbeBlockAndHeaderLength();
     }
 

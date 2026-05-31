@@ -283,6 +283,25 @@ export function getRiskEventColumns(): ColumnDef<RiskEvent, unknown>[] {
       enableSorting: true,
     },
     {
+      accessorKey: "strategy_name",
+      header: "Strategy",
+      cell: ({ row }) => {
+        const name = row.original.strategy_name;
+        const account = row.original.account_name;
+        return name ? (
+          <div className="flex flex-col leading-tight">
+            <span>{name}</span>
+            {account && (
+              <span className="text-[10px] text-muted-foreground">{account}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-muted-foreground/50">—</span>
+        );
+      },
+      enableSorting: false,
+    },
+    {
       accessorKey: "reason",
       header: ({ column }) => <DataTableSortHeader column={column} title="Reason" />,
       cell: ({ getValue }) => {
