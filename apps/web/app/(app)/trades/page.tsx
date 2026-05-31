@@ -1,6 +1,12 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { VisibilityState } from "@tanstack/react-table";
 import type { Trade } from "@/types";
@@ -583,10 +589,43 @@ function TradesPageSkeleton() {
   );
 }
 
+// Render children only after the component has mounted on the client, showing
+// the fallback for both the server render and the first client render so the
+// two match exactly. The trades view is driven entirely by URL search params
+// (tabs/filters/sorting) plus live SWR + WebSocket data — none of which exist
+// at prerender — so reading useSearchParams() inside it makes the server emit
+// the skeleton while the client renders content, a hydration mismatch that
+// regenerated the whole tree on every load. Gating on mount eliminates it
+// without giving up the skeleton loading UX.
+// useSyncExternalStore is the hydration-safe way to detect "are we past the
+// first client render": getServerSnapshot returns false (used for SSR and the
+// hydration pass, so server and client agree), then getSnapshot returns true
+// for every render thereafter. No setState-in-effect, no cascading renders.
+const subscribeNoop = () => () => {};
+function useHydrated() {
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+}
+
+function ClientOnly({
+  fallback,
+  children,
+}: {
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return <>{useHydrated() ? children : fallback}</>;
+}
+
 export default function TradesPage() {
   return (
     <Suspense fallback={<TradesPageSkeleton />}>
-      <TradesPageInner />
+      <ClientOnly fallback={<TradesPageSkeleton />}>
+        <TradesPageInner />
+      </ClientOnly>
     </Suspense>
   );
 }
