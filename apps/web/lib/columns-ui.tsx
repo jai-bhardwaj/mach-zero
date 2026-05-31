@@ -552,6 +552,7 @@ export function getUserColumns(
         <Button
           variant="ghost"
           size="xs"
+          aria-label={`Edit ${row.original.username || row.original.email || "user"}`}
           onClick={(e) => {
             e.stopPropagation();
             onEdit(row.original);
