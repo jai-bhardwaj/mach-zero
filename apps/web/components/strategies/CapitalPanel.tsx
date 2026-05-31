@@ -48,7 +48,7 @@ export function CapitalPanel({ pools }: Props) {
                 </span>
               </div>
               <div className="sm:text-right">
-                <div className="text-base font-semibold tabular-nums sm:text-lg">
+                <div className="text-base font-mono font-semibold tabular-nums sm:text-lg">
                   {formatPrice(pool.totalCapital)}
                 </div>
                 <div className="text-xs text-muted-foreground">Total Capital</div>
@@ -59,10 +59,10 @@ export function CapitalPanel({ pools }: Props) {
             <div>
               <div className="mb-1 flex justify-between text-xs">
                 <span className="text-muted-foreground">
-                  Allocated: <span className="tabular-nums">{formatPrice(pool.allocatedTotal)}</span>
+                  Allocated: <span className="font-mono tabular-nums">{formatPrice(pool.allocatedTotal)}</span>
                 </span>
                 <span className="text-muted-foreground">
-                  Available: <span className="tabular-nums">{formatPrice(available)}</span>
+                  Available: <span className="font-mono tabular-nums">{formatPrice(available)}</span>
                 </span>
               </div>
               <div className="h-1 w-full rounded-full bg-muted">
@@ -105,7 +105,7 @@ export function CapitalPanel({ pools }: Props) {
                           {formatPrice(alloc.allocatedAmt)} ({stratPct.toFixed(1)}%)
                         </span>
                         <span className="text-muted-foreground">
-                          margin: {formatPrice(alloc.usedMargin)}
+                          margin: <span className="font-mono tabular-nums">{formatPrice(alloc.usedMargin)}</span>
                         </span>
                       </div>
                     </div>

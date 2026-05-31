@@ -88,7 +88,7 @@ export function Sidebar() {
       )}
     >
       {/* Logo + trading mode indicator */}
-      <div className="flex h-12 items-center border-b border-sidebar-border px-3">
+      <div className="flex h-11 items-center border-b border-sidebar-border px-3">
         <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
             M0

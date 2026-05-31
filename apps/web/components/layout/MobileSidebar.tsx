@@ -60,7 +60,7 @@ export function MobileSidebar() {
 
       <SheetContent side="left" className="w-64">
         {/* Logo */}
-        <div className="flex h-12 items-center border-b border-sidebar-border px-4">
+        <div className="flex h-11 items-center border-b border-sidebar-border px-4">
           <Link
             href="/dashboard"
             className="flex items-center gap-2.5"

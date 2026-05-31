@@ -647,16 +647,14 @@ export function OnboardingWizard({ templates }: Props) {
             <CardContent className="flex flex-col items-center gap-5 p-10 text-center">
               {/* Animated checkmark circle */}
               <div className="relative">
-                <div className="animate-in zoom-in-0 duration-500 flex h-20 w-20 items-center justify-center rounded-full bg-green-600 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
+                <div className="animate-in zoom-in-0 duration-500 flex h-20 w-20 items-center justify-center rounded-full bg-green-600">
                   <Check className="h-10 w-10 text-white animate-in fade-in slide-in-from-bottom-2 duration-300 delay-200" />
                 </div>
-                {/* Ripple effect */}
-                <div className="absolute inset-0 rounded-full bg-green-500/20 animate-ping" style={{ animationDuration: '1.5s', animationIterationCount: '2' }} />
               </div>
 
               <div className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-300 space-y-2">
                 <h2 className="text-xl font-semibold">
-                  You&apos;re all set! 🚀
+                  You&apos;re all set!
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   Your workspace <span className="font-medium text-foreground">{workspaceName || "is"}</span> is ready.
@@ -669,7 +667,7 @@ export function OnboardingWizard({ templates }: Props) {
               <div className="w-full max-w-xs">
                 <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-primary transition-all ease-out"
+                    className="h-full rounded-full bg-primary transition-all ease-out"
                     style={{
                       width: '100%',
                       animation: 'progressFill 1.5s ease-out forwards',

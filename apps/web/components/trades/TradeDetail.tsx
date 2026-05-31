@@ -32,9 +32,9 @@ export function TradeDetail({ trade }: Props) {
                 : "text-muted-foreground"
           }
         />
-        <DetailItem label="Price" value={formatPrice(trade.price)} />
-        <DetailItem label="Quantity" value={formatQuantity(trade.quantity)} />
-        <DetailItem label="Time" value={formatTimestamp(trade.timestamp)} />
+        <DetailItem label="Price" value={formatPrice(trade.price)} className="font-mono tabular-nums" />
+        <DetailItem label="Quantity" value={formatQuantity(trade.quantity)} className="font-mono tabular-nums" />
+        <DetailItem label="Time" value={formatTimestamp(trade.timestamp)} className="font-mono tabular-nums" />
         <DetailItem
           label="Mode"
           value={trade.trading_mode === "MOCK" ? "Paper" : trade.trading_mode === "LIVE" ? "Live" : trade.trading_mode ?? "N/A"}

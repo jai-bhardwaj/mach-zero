@@ -134,8 +134,8 @@ export function StrategyCard({
         {strategy.allocation && (
           <div>
             <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>Capital: {formatPrice(strategy.allocation.allocatedAmt)}</span>
-              <span>Margin: {formatPrice(strategy.allocation.usedMargin)}</span>
+              <span>Capital: <span className="font-mono tabular-nums">{formatPrice(strategy.allocation.allocatedAmt)}</span></span>
+              <span>Margin: <span className="font-mono tabular-nums">{formatPrice(strategy.allocation.usedMargin)}</span></span>
             </div>
             <div className="mt-1 h-1 w-full rounded-full bg-muted">
               <div
