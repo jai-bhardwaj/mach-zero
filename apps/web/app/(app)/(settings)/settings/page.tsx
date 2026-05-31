@@ -1,5 +1,6 @@
 import { AccountSettings } from "@/components/settings/AccountSettings";
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
+import { TransitionSettings } from "@/components/settings/TransitionSettings";
 import { TradingModeSettings } from "@/components/settings/TradingModeSettings";
 import { PageHeader } from "@/components/ui/page-header";
 
@@ -11,6 +12,7 @@ export default function SettingsPage() {
 
       <AccountSettings />
       <ThemeSettings />
+      <TransitionSettings />
       <TradingModeSettings />
     </div>
   );

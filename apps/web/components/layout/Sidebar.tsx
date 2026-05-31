@@ -117,17 +117,14 @@ export function Sidebar() {
       </div>
 
       {/* Swappable region (mode/back block + nav), keyed on inSettings so it
-          remounts and slide-animates ONLY when crossing the app<->settings
-          boundary — not on within-section navigation — synced with main's fade.
-          Settings slides in from the right; the app nav slides back from left. */}
+          remounts ONLY when crossing the app<->settings boundary — not on
+          within-section navigation. The .nav-swap class + data-nav-dir let
+          globals.css pick the animation from the user's nav-transition
+          preference (slide/fade/none/native); slide is the default. */}
       <div
         key={inSettings ? "settings-nav" : "app-nav"}
-        className={cn(
-          "flex min-h-0 flex-1 flex-col",
-          inSettings
-            ? "animate-[navSlideInRight_180ms_ease-out]"
-            : "animate-[navSlideInLeft_180ms_ease-out]"
-        )}
+        data-nav-dir={inSettings ? "right" : "left"}
+        className="nav-swap flex min-h-0 flex-1 flex-col"
       >
       {/* Settings mode: a "Back to app" button (+ section label) replaces the
           trading-mode indicator, so the single sidebar swaps cleanly between the
