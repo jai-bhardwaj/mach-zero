@@ -58,6 +58,9 @@ export function pnlColor(pnl: number): string {
 }
 
 export function getSymbolName(symbolId: number): string {
+  // symbolId 0 is the "no symbol" sentinel (e.g. some risk rejections) — show
+  // a dash rather than a meaningless "SYM-0".
+  if (!symbolId) return "—";
   return SYMBOLS[symbolId] ?? `SYM-${symbolId}`;
 }
 

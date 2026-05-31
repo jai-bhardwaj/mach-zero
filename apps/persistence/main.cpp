@@ -182,8 +182,8 @@ int main() {
                     OrderReject reject;
                     reject.wrapForDecode(data, MessageHeader::encodedLength(),
                                           hdr.blockLength(), hdr.version(), length);
-                    sink.writeRiskEvent(reject.tenantId(), reject.orderId(), 0,
-                                        "rejected", reject.timestamp());
+                    sink.writeRiskEvent(reject.tenantId(), reject.orderId(),
+                                        reject.symbolId(), "rejected", reject.timestamp());
                 }
             }, 50);
 

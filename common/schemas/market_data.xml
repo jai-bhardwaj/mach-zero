@@ -147,6 +147,7 @@
         <field name="venue"          id="4" type="Venue"/>
         <field name="timestamp"      id="5" type="Timestamp"/>
         <field name="tenantId"       id="6" type="uint32"/>
+        <field name="symbolId"       id="7" type="uint64"/>
     </sbe:message>
 
     <sbe:message name="CancelRequest" id="13" description="Order Cancel Request">

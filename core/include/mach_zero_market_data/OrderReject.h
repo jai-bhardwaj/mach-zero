@@ -119,7 +119,7 @@ private:
     }
 
 public:
-    static constexpr std::uint16_t SBE_BLOCK_LENGTH = static_cast<std::uint16_t>(30);
+    static constexpr std::uint16_t SBE_BLOCK_LENGTH = static_cast<std::uint16_t>(38);
     static constexpr std::uint16_t SBE_TEMPLATE_ID = static_cast<std::uint16_t>(12);
     static constexpr std::uint16_t SBE_SCHEMA_ID = static_cast<std::uint16_t>(2);
     static constexpr std::uint16_t SBE_SCHEMA_VERSION = static_cast<std::uint16_t>(3);
@@ -177,7 +177,7 @@ public:
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint16_t sbeBlockLength() SBE_NOEXCEPT
     {
-        return static_cast<std::uint16_t>(30);
+        return static_cast<std::uint16_t>(38);
     }
 
     SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t sbeBlockAndHeaderLength() SBE_NOEXCEPT
@@ -680,6 +680,69 @@ public:
         return *this;
     }
 
+    SBE_NODISCARD static const char *symbolIdMetaAttribute(const MetaAttribute metaAttribute) SBE_NOEXCEPT
+    {
+        switch (metaAttribute)
+        {
+            case MetaAttribute::PRESENCE: return "required";
+            default: return "";
+        }
+    }
+
+    static SBE_CONSTEXPR std::uint16_t symbolIdId() SBE_NOEXCEPT
+    {
+        return 7;
+    }
+
+    SBE_NODISCARD static SBE_CONSTEXPR std::uint64_t symbolIdSinceVersion() SBE_NOEXCEPT
+    {
+        return 0;
+    }
+
+    SBE_NODISCARD bool symbolIdInActingVersion() SBE_NOEXCEPT
+    {
+        return true;
+    }
+
+    SBE_NODISCARD static SBE_CONSTEXPR std::size_t symbolIdEncodingOffset() SBE_NOEXCEPT
+    {
+        return 30;
+    }
+
+    static SBE_CONSTEXPR std::uint64_t symbolIdNullValue() SBE_NOEXCEPT
+    {
+        return SBE_NULLVALUE_UINT64;
+    }
+
+    static SBE_CONSTEXPR std::uint64_t symbolIdMinValue() SBE_NOEXCEPT
+    {
+        return UINT64_C(0x0);
+    }
+
+    static SBE_CONSTEXPR std::uint64_t symbolIdMaxValue() SBE_NOEXCEPT
+    {
+        return UINT64_C(0xfffffffffffffffe);
+    }
+
+    static SBE_CONSTEXPR std::size_t symbolIdEncodingLength() SBE_NOEXCEPT
+    {
+        return 8;
+    }
+
+    SBE_NODISCARD std::uint64_t symbolId() const SBE_NOEXCEPT
+    {
+        std::uint64_t val;
+        std::memcpy(&val, m_buffer + m_offset + 30, sizeof(std::uint64_t));
+        return SBE_LITTLE_ENDIAN_ENCODE_64(val);
+    }
+
+    OrderReject &symbolId(const std::uint64_t value) SBE_NOEXCEPT
+    {
+        std::uint64_t val = SBE_LITTLE_ENDIAN_ENCODE_64(value);
+        std::memcpy(m_buffer + m_offset + 30, &val, sizeof(std::uint64_t));
+        return *this;
+    }
+
 template<typename CharT, typename Traits>
 friend std::basic_ostream<CharT, Traits> & operator << (
     std::basic_ostream<CharT, Traits> &builder, const OrderReject &_writer)
@@ -719,6 +782,10 @@ friend std::basic_ostream<CharT, Traits> & operator << (
     builder << ", ";
     builder << R"("tenantId": )";
     builder << +writer.tenantId();
+
+    builder << ", ";
+    builder << R"("symbolId": )";
+    builder << +writer.symbolId();
 
     builder << '}';
 

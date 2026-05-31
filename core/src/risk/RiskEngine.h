@@ -85,7 +85,8 @@ public:
             .timestamp(static_cast<uint64_t>(
                 std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count()))
-            .tenantId(order.tenantId());
+            .tenantId(order.tenantId())
+            .symbolId(order.symbolId());
         return OrderReject::sbeBlockAndHeaderLength();
     }
 
