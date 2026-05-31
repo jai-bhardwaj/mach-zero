@@ -20,16 +20,12 @@ export async function GET(request: NextRequest) {
 
   const conditions: string[] = [];
 
-  // Tenant isolation: filter by engineId (the stringified integer that
-  // the post-v3 persistence service writes into the tenant_id column).
-  // Pre-v3 rows stored the UUID or NULL and are naturally invisible to
-  // this filter — see infra/schema/questdb_tables.sql for the backfill
-  // note. If engineId is missing on the session (shouldn't happen post-
-  // migration), fail closed and return no rows.
-  if (typeof session.engineId !== "number") {
-    return NextResponse.json({ data: [], total: 0, offset: 0, limit });
-  }
-  conditions.push(`tenant_id = '${session.engineId}'`);
+  // Market data is public/global by design (docs/0001 — Trade/Quote carry no
+  // tenantId; the persistence service writes them under the reserved
+  // tenant_id='0'). The Trades tab shows this shared feed to every
+  // authenticated user. Per-tenant order/fill activity lives in /api/orders,
+  // which DOES filter by engineId. requireAuth() above still gates access.
+  conditions.push(`tenant_id = '0'`);
 
   const parsedSymbolId = symbolId ? Number(symbolId) : NaN;
   if (Number.isFinite(parsedSymbolId)) conditions.push(`symbol_id = ${parsedSymbolId}`);
