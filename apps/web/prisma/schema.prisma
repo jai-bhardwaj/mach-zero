@@ -135,6 +135,10 @@ enum StrategyStatus {
 
 model StrategyConfig {
   id               String          @id @default(uuid())
+  // Stable integer id carried on the SBE hot path (OrderRequest.strategyId) so
+  // QuestDB executions join back to the strategy/account/mode in the web.
+  // Mirrors TenantMapping.engineId; the engine config export uses it.
+  engineId         Int             @unique @default(autoincrement())
   tenantId         String
   tenant           Tenant          @relation(fields: [tenantId], references: [id])
   accountId        String?
