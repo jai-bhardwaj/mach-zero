@@ -7,8 +7,13 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function KillSwitchPanel() {
-  const { active, loading, refresh, toggle } = useKillSwitch();
+  const { active, source, loading, refresh, toggle } = useKillSwitch();
   const [confirmAction, setConfirmAction] = useState<"on" | "off" | null>(null);
+
+  // The API serves local fallback state when it can't reach the C++ risk
+  // monitor. In that case we can't truthfully claim "System Normal" — the
+  // authoritative kill-switch backend is unreachable.
+  const degraded = source === "fallback";
 
   useEffect(() => {
     refresh();
@@ -45,6 +50,8 @@ export function KillSwitchPanel() {
               ? "bg-muted-foreground"
               : active
               ? "bg-red-500 animate-pulse"
+              : degraded
+              ? "bg-orange-400"
               : "bg-green-500"
           )}
         />
@@ -55,6 +62,8 @@ export function KillSwitchPanel() {
               ? "text-muted-foreground"
               : active
               ? "text-red-600 dark:text-red-400"
+              : degraded
+              ? "text-orange-600 dark:text-orange-400"
               : "text-green-600 dark:text-green-400"
           )}
         >
@@ -62,6 +71,8 @@ export function KillSwitchPanel() {
             ? "Disconnected"
             : active
             ? "Kill Switch Active — All Orders Halted"
+            : degraded
+            ? "Status unknown — risk monitor unreachable"
             : "System Normal — Orders Flowing"}
         </span>
       </div>
