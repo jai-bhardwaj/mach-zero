@@ -17,7 +17,7 @@ export function DashboardClient({ hasAccounts, hasStrategies }: Props) {
   const showGettingStarted = !hasAccounts || !hasStrategies;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4">
       {showGettingStarted && (
         <GettingStarted
           hasAccounts={hasAccounts}

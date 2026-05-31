@@ -207,10 +207,12 @@
   --shadow-popover: var(--shadow-popover);
 }
 
-/* ── Scrollbar — dual mode ─────────────────────────────────── */
+/* ── Scrollbar — dual mode ─────────────────────────────────────────
+   Visible enough that overflowing regions (e.g. the dashboard) clearly read
+   as scrollable rather than cut off. */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -218,20 +220,33 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: oklch(0 0 0 / 12%);
-  border-radius: 3px;
+  background: oklch(0 0 0 / 28%);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0 0 0 / 22%);
+  background: oklch(0 0 0 / 45%);
+  background-clip: padding-box;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: oklch(1 0 0 / 10%);
+  background: oklch(1 0 0 / 25%);
+  background-clip: padding-box;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: oklch(1 0 0 / 20%);
+  background: oklch(1 0 0 / 45%);
+  background-clip: padding-box;
+}
+
+/* Standard properties (Chromium 121+, Firefox). A clearly visible thumb so
+   overflowing regions read as scrollable, not cut off — the previous 10%
+   opacity was effectively invisible in dark mode. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(1 0 0 / 38%) transparent;
 }
 
 /* ── Animations ───────────────────────────────────────────── */
