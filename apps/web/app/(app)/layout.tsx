@@ -36,11 +36,14 @@ export default async function AppLayout({
 
   return (
     <TradingModeProvider>
-      <div className="flex h-screen overflow-hidden">
+      {/* h-dvh (dynamic viewport height) + overflow-hidden pins the whole app
+          shell to the visible viewport on every device/browser-chrome state,
+          so only inner regions (nav, main) scroll — never the page. */}
+      <div className="flex h-dvh max-h-dvh w-full max-w-[100vw] overflow-hidden">
         <div className="hidden md:flex">
           <Sidebar />
         </div>
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Header />
           <main className="flex-1 overflow-auto px-3 py-4 sm:px-5 md:px-6">
             {children}
