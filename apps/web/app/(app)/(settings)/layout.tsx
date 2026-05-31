@@ -1,15 +1,10 @@
-import { SettingsNav } from "@/components/layout/SettingsNav";
-
-// Shared layout for the Settings area (settings, accounts, alerts, and admin:
-// workspaces/users/system). Renders a secondary nav beside the page content.
-// This is a route group — URLs are unchanged (/accounts, /users, ...).
+// Settings pages render full-width. The primary app sidebar swaps in place to
+// the settings nav (with a "Back to app" button) when inside the Settings area
+// — see components/layout/Sidebar.tsx / MobileSidebar.tsx — so there is no
+// separate settings sub-sidebar here. This is a route group; URLs are unchanged
+// (/accounts, /settings, /users, ...).
 export default function SettingsLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-4 md:flex-row md:gap-6">
-      <SettingsNav />
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  );
+  return <>{children}</>;
 }
