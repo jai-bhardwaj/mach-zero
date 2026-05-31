@@ -13,6 +13,14 @@ const SEND_ENGINE_ID = process.env.ENGINE_SCHEMA_V3 === "true";
 // In-memory kill switch state (until C++ risk monitor exposes an HTTP API)
 let killSwitchActive = false;
 
+// The C++ risk monitor returns killSwitch as a boolean on GET /status but as the
+// strings "activated"/"deactivated" on POST /kill-switch/on|off. Normalize to a
+// real boolean at this boundary so clients get the typed KillSwitchStatus
+// contract and never have to coerce a truthy string (e.g. "deactivated").
+function normalizeKillSwitch(raw: unknown): boolean {
+  return raw === true || raw === "activated" || raw === "on";
+}
+
 // GET /api/kill-switch - proxy to C++ risk monitor or return local state
 export async function GET() {
   const session = await requireAuth();
@@ -24,7 +32,11 @@ export async function GET() {
         cache: "no-store",
       });
       const data = await res.json();
-      return NextResponse.json(data);
+      return NextResponse.json({
+        ...data,
+        killSwitch: normalizeKillSwitch(data.killSwitch),
+        source: "monitor",
+      });
     } catch {
       // Fall through to local state
     }
@@ -107,7 +119,11 @@ export async function POST(request: NextRequest) {
         }).catch(() => {});
       }
 
-      return NextResponse.json(data);
+      return NextResponse.json({
+        ...data,
+        killSwitch: normalizeKillSwitch(data.killSwitch),
+        source: "monitor",
+      });
     } catch {
       // Fall through to local state
     }
