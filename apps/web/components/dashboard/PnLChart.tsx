@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { realizedPnlSeries } from "@/lib/pnl";
 
 interface PnLPoint {
   timestamp: string;
@@ -31,19 +32,18 @@ export function PnLChart() {
           return;
         }
         const result = await res.json();
-        const trades = result.data ?? result;
+        const trades = (result.data ?? result) as Array<{
+          symbol_id: number; side: number; price: number; quantity: number; timestamp: string;
+        }>;
 
-        let cumPnl = 0;
-        const points: PnLPoint[] = [];
-
-        for (const trade of trades.reverse()) {
-          const value = trade.price * trade.quantity;
-          cumPnl += trade.side === 1 ? -value : value;
-          points.push({
-            timestamp: new Date(trade.timestamp).toLocaleTimeString(),
-            pnl: Math.round(cumPnl * 100) / 100,
-          });
-        }
+        // Chronological order, then realized P&L (average-cost) per fill — not a
+        // raw cashflow sum, which would mislabel an open one-sided position.
+        const chronological = [...trades].reverse();
+        const realized = realizedPnlSeries(chronological);
+        const points: PnLPoint[] = chronological.map((trade, i) => ({
+          timestamp: new Date(trade.timestamp).toLocaleTimeString(),
+          pnl: realized[i],
+        }));
 
         setData(points);
         setError(false);
@@ -92,7 +92,7 @@ export function PnLChart() {
   return (
     <div className="border-t border-border/50 pt-4">
       <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-3">
-        Cumulative P&L
+        Realized P&L
       </h3>
       <div className="px-0 sm:px-2">
         <ResponsiveContainer width="100%" height={200}>
