@@ -183,7 +183,11 @@ export function AccountsClient({ initialAccounts }: Props) {
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
-                      <Button variant="ghost" size="icon-xs" />
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={`Actions for ${acct.name}`}
+                      />
                     }
                   >
                     <MoreVerticalIcon className="size-3.5" />
