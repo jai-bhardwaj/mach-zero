@@ -5,10 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { filterNavByRole, type NavItem } from "@/lib/nav-items";
+import {
+  filterNavByRole,
+  filterSettingsNavByRole,
+  isSettingsRoute,
+  type NavItem,
+} from "@/lib/nav-items";
 import { useTradingMode } from "@/contexts/TradingModeContext";
 import { Sheet, SheetTrigger, SheetContent, SheetClose } from "@/components/ui/sheet";
-import { Menu, LogOut } from "lucide-react";
+import { ArrowLeft, Menu, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 /** Group nav items by section, preserving order */
@@ -39,7 +44,12 @@ export function MobileSidebar() {
   const tenantName = (session?.user as Record<string, unknown> | undefined)
     ?.tenantName as string | undefined;
 
-  const visibleItems = useMemo(() => filterNavByRole(userRole), [userRole]);
+  const inSettings = isSettingsRoute(pathname ?? "");
+  const visibleItems = useMemo(
+    () =>
+      inSettings ? filterSettingsNavByRole(userRole) : filterNavByRole(userRole),
+    [inSettings, userRole]
+  );
   const groupedItems = useMemo(() => groupBySection(visibleItems), [visibleItems]);
 
   const initials = userName
@@ -75,18 +85,34 @@ export function MobileSidebar() {
           </Link>
         </div>
 
-        {/* Trading mode indicator */}
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-sidebar-border">
-          <span
-            className={cn(
-              "h-1.5 w-1.5 rounded-full shrink-0",
-              hasLiveStrategies ? "bg-red-400 animate-pulse" : "bg-blue-400"
-            )}
-          />
-          <span className="text-[11px] text-muted-foreground">
-            {hasLiveStrategies ? `${liveCount} Live` : "Paper Trading"}
-          </span>
-        </div>
+        {/* Settings mode: Back button + section header; otherwise trading-mode indicator */}
+        {inSettings ? (
+          <div className="border-b border-sidebar-border p-3">
+            <Link
+              href="/dashboard"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 rounded-md px-3 py-[5px] text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              Back to app
+            </Link>
+            <p className="px-3 pt-2 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+              Settings
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-4 py-2 border-b border-sidebar-border">
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full shrink-0",
+                hasLiveStrategies ? "bg-red-400 animate-pulse" : "bg-blue-400"
+              )}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {hasLiveStrategies ? `${liveCount} Live` : "Paper Trading"}
+            </span>
+          </div>
+        )}
 
         {/* Navigation with sections */}
         <nav className="flex-1 p-3 overflow-auto">
@@ -102,7 +128,10 @@ export function MobileSidebar() {
               )}
               <div className="space-y-0.5">
                 {group.items.map((item) => {
-                  const active = pathname?.startsWith(item.href);
+                  const active =
+                    item.href === "/settings"
+                      ? pathname === "/settings"
+                      : pathname?.startsWith(item.href);
                   const Icon = item.icon;
 
                   return (

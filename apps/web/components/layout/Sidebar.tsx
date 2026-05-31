@@ -5,14 +5,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { filterNavByRole, type NavItem } from "@/lib/nav-items";
+import {
+  filterNavByRole,
+  filterSettingsNavByRole,
+  isSettingsRoute,
+  type NavItem,
+} from "@/lib/nav-items";
 import { useTradingMode } from "@/contexts/TradingModeContext";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
+import { ArrowLeft, ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -58,7 +63,14 @@ export function Sidebar() {
   const tenantName = (session?.user as Record<string, unknown> | undefined)
     ?.tenantName as string | undefined;
 
-  const visibleItems = useMemo(() => filterNavByRole(userRole), [userRole]);
+  // In the Settings area the sidebar swaps in place to the settings nav (+ a
+  // Back button) rather than showing a separate sub-sidebar beside the content.
+  const inSettings = isSettingsRoute(pathname ?? "");
+  const visibleItems = useMemo(
+    () =>
+      inSettings ? filterSettingsNavByRole(userRole) : filterNavByRole(userRole),
+    [inSettings, userRole]
+  );
   const groupedItems = useMemo(() => groupBySection(visibleItems), [visibleItems]);
 
   const collapsed = useSyncExternalStore(
@@ -104,19 +116,57 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Trading mode - compact indicator below logo */}
-      {!collapsed && (
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-sidebar-border">
-          <span
-            className={cn(
-              "h-1.5 w-1.5 rounded-full shrink-0",
-              hasLiveStrategies ? "bg-red-400 animate-pulse" : "bg-blue-400"
-            )}
-          />
-          <span className="text-[11px] text-muted-foreground">
-            {hasLiveStrategies ? `${liveCount} Live` : "Paper Trading"}
-          </span>
-        </div>
+      {/* Settings mode: a "Back to app" button (+ section label) replaces the
+          trading-mode indicator, so the single sidebar swaps cleanly between the
+          app nav and the settings nav. */}
+      {inSettings ? (
+        collapsed ? (
+          <div className="border-b border-sidebar-border p-2">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Link
+                    href="/dashboard"
+                    aria-label="Back to app"
+                    className="flex justify-center rounded-md px-2.5 py-[5px] text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4 shrink-0" />
+                  </Link>
+                }
+              />
+              <TooltipContent side="right" sideOffset={8}>
+                Back to app
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        ) : (
+          <div className="border-b border-sidebar-border p-2">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2.5 rounded-md px-2.5 py-[5px] text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span>Back to app</span>
+            </Link>
+            <p className="px-2.5 pt-2 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+              Settings
+            </p>
+          </div>
+        )
+      ) : (
+        !collapsed && (
+          <div className="flex items-center gap-1.5 px-4 py-2 border-b border-sidebar-border">
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full shrink-0",
+                hasLiveStrategies ? "bg-red-400 animate-pulse" : "bg-blue-400"
+              )}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {hasLiveStrategies ? `${liveCount} Live` : "Paper Trading"}
+            </span>
+          </div>
+        )
       )}
 
       {/* Navigation with section grouping.
@@ -137,7 +187,12 @@ export function Sidebar() {
             )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
-                const active = pathname?.startsWith(item.href);
+                // "/settings" (General) must match exactly, else it would also
+                // light up on /settings/notifications.
+                const active =
+                  item.href === "/settings"
+                    ? pathname === "/settings"
+                    : pathname?.startsWith(item.href);
                 const Icon = item.icon;
 
                 const link = (

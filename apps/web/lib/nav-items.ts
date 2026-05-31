@@ -64,3 +64,21 @@ export function filterSettingsNavByRole(role: string | undefined): NavItem[] {
   if (!role) return [];
   return SETTINGS_NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role));
 }
+
+// Top-level path prefixes that belong to the Settings area. When the current
+// route matches one of these, the sidebar swaps in place to the settings nav
+// (with a Back button) instead of the main app nav.
+const SETTINGS_ROUTE_PREFIXES = [
+  "/settings",
+  "/accounts",
+  "/workspaces",
+  "/users",
+  "/system",
+];
+
+/** True when the given pathname is within the Settings area. */
+export function isSettingsRoute(pathname: string): boolean {
+  return SETTINGS_ROUTE_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+}
