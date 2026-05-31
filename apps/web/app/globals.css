@@ -241,12 +241,18 @@
   background-clip: padding-box;
 }
 
-/* Standard properties (Chromium 121+, Firefox). A clearly visible thumb so
-   overflowing regions read as scrollable, not cut off — the previous 10%
-   opacity was effectively invisible in dark mode. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: oklch(1 0 0 / 38%) transparent;
+/* Standard scrollbar properties for Firefox ONLY. In Chromium 121+ setting
+   `scrollbar-width` DISABLES the ::-webkit-scrollbar rules above, which collapses
+   them to the OS overlay scrollbar — on macOS that is hidden until you scroll, so
+   an overflowing region (e.g. the dashboard below the fold) looks cut off rather
+   than scrollable. Gating this on browsers that DON'T support ::-webkit-scrollbar
+   keeps the always-visible classic scrollbar in Chrome/Safari while still giving
+   Firefox a thin styled one. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(1 0 0 / 38%) transparent;
+  }
 }
 
 /* ── Animations ───────────────────────────────────────────── */

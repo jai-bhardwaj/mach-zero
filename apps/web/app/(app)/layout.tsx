@@ -48,7 +48,7 @@ export default async function AppLayout({
         </div>
         <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-auto px-3 py-4 sm:px-5 md:px-6">
+          <main className="flex-1 overflow-auto px-3 py-4 sm:px-5 md:px-6 [scrollbar-gutter:stable]">
             {children}
           </main>
         </div>
