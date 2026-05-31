@@ -86,12 +86,16 @@ public:
     void writeTrade(uint32_t tenantId, uint64_t symbolId, int64_t price,
                     uint64_t quantity, uint8_t side, uint8_t venue,
                     uint64_t timestampNanos) {
-        buffer_.append("trades");
-        appendTag("symbol_id", symbolId);
-        appendTag("venue", venue);
-        buffer_.append(" tenant_id=\"");
+        // symbol_id/venue/side are LONG/INT columns, so they must be ILP
+        // integer *fields* (=Ni), not tags — tags are SYMBOL-typed and QuestDB
+        // rejects the whole line (and tears down the writer) on the type cast.
+        buffer_.append("trades tenant_id=\"");
         buffer_.append(std::to_string(tenantId));
-        buffer_.append("\",price=");
+        buffer_.append("\",symbol_id=");
+        buffer_.append(std::to_string(symbolId));
+        buffer_.append("i,venue=");
+        buffer_.append(std::to_string(venue));
+        buffer_.append("i,price=");
         appendFixedPoint(price);
         buffer_.append(",quantity=");
         appendFixedPoint(static_cast<int64_t>(quantity));
@@ -107,12 +111,13 @@ public:
     void writeOrder(uint32_t tenantId, uint64_t orderId, uint64_t symbolId,
                     uint8_t side, int64_t price, uint64_t quantity,
                     const char* status, uint64_t timestampNanos) {
-        buffer_.append("orders");
-        appendTag("symbol_id", symbolId);
-        appendTag("order_id", orderId);
-        buffer_.append(" tenant_id=\"");
+        buffer_.append("orders tenant_id=\"");
         buffer_.append(std::to_string(tenantId));
-        buffer_.append("\",side=");
+        buffer_.append("\",symbol_id=");
+        buffer_.append(std::to_string(symbolId));
+        buffer_.append("i,order_id=");
+        buffer_.append(std::to_string(orderId));
+        buffer_.append("i,side=");
         buffer_.append(std::to_string(side));
         buffer_.append("i,price=");
         appendFixedPoint(price);
@@ -129,12 +134,13 @@ public:
     // Write a risk event in ILP format.
     void writeRiskEvent(uint32_t tenantId, uint64_t orderId, uint64_t symbolId,
                         const char* reason, uint64_t timestampNanos) {
-        buffer_.append("risk_events");
-        appendTag("symbol_id", symbolId);
-        appendTag("order_id", orderId);
-        buffer_.append(" tenant_id=\"");
+        buffer_.append("risk_events tenant_id=\"");
         buffer_.append(std::to_string(tenantId));
-        buffer_.append("\",reason=\"");
+        buffer_.append("\",symbol_id=");
+        buffer_.append(std::to_string(symbolId));
+        buffer_.append("i,order_id=");
+        buffer_.append(std::to_string(orderId));
+        buffer_.append("i,reason=\"");
         buffer_.append(reason);
         buffer_.append("\" ");
         buffer_.append(std::to_string(timestampNanos));
