@@ -4,6 +4,7 @@
     {
       "type": "simple_spread",
       "tenantId": 1,
+      "strategyId": 1,
       "symbolId": 1,
       "spreadOffset": 5000000000,
       "orderQuantity": 10000000,
@@ -12,6 +13,7 @@
     {
       "type": "momentum",
       "tenantId": 1,
+      "strategyId": 2,
       "symbolId": 2,
       "windowSize": 20,
       "threshold": 500000000,

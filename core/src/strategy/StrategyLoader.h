@@ -76,6 +76,12 @@ inline bool loadStrategiesFromFile(
             return false;
         }
 
+        // Optional strategyId — the engine strategy id used to attribute
+        // executions back to a strategy/account/mode on the web side.
+        // Absent or non-integer leaves it 0 (unattributed); not fatal.
+        int64_t strategyId = 0;
+        if (auto e = entry["strategyId"].get(strategyId); e) strategyId = 0;
+
         int64_t tenantId = 0;
         int64_t symbolId = 0;
         if (entry["tenantId"].get(tenantId) || tenantId <= 0) {
@@ -106,6 +112,7 @@ inline bool loadStrategiesFromFile(
         if (type == "simple_spread") {
             SimpleSpreadStrategy::Config cfg;
             cfg.tenantId = static_cast<uint32_t>(tenantId);
+            cfg.strategyId = static_cast<uint64_t>(strategyId);
             cfg.symbolId = static_cast<uint64_t>(symbolId);
             cfg.venue = venue;
             if (!entry["spreadOffset"].get(i)) cfg.spreadOffset = i;
@@ -119,6 +126,7 @@ inline bool loadStrategiesFromFile(
         } else if (type == "momentum") {
             MomentumStrategy::Config cfg;
             cfg.tenantId = static_cast<uint32_t>(tenantId);
+            cfg.strategyId = static_cast<uint64_t>(strategyId);
             cfg.symbolId = static_cast<uint64_t>(symbolId);
             cfg.venue = venue;
             // windowSize is optional (defaults via Config), but if present it
