@@ -56,7 +56,7 @@ export function OrderHistory({
       emptyDescription="Orders will appear here once a strategy starts trading."
       estimateSize={40}
       overscan={15}
-      maxHeight={600}
+      fill
     />
   );
 }

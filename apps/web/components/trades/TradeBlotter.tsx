@@ -62,7 +62,7 @@ export function TradeBlotter({
       focusedRowIndex={focusedRowIndex}
       estimateSize={40}
       overscan={15}
-      maxHeight={600}
+      fill
     />
   );
 }

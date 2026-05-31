@@ -367,13 +367,13 @@ function TradesPageInner() {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {/* Header */}
       <PageHeader title="Trades & Orders" />
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList variant="line">
+      {/* Tabs — fill the viewport; the table area is the sole vertical scroller */}
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-1 min-h-0 flex-col">
+        <TabsList variant="line" className="shrink-0">
           <TabsTrigger value="trades">
             Trades
             <span className="text-[10px] text-muted-foreground ml-1">{tradeTotal.toLocaleString()}</span>
@@ -389,7 +389,7 @@ function TradesPageInner() {
         </TabsList>
 
         {/* Trades Tab */}
-        <TabsContent value="trades" className="space-y-3">
+        <TabsContent value="trades" className="min-h-0 flex flex-col gap-3">
           <NewTradesBanner count={newTradeCount} onRefresh={handleNewTradesRefresh} />
           <DataTableToolbar
             filters={TRADE_FILTERS}
@@ -446,7 +446,7 @@ function TradesPageInner() {
         </TabsContent>
 
         {/* Orders Tab */}
-        <TabsContent value="orders" className="space-y-3">
+        <TabsContent value="orders" className="min-h-0 flex flex-col gap-3">
           <DataTableToolbar
             filters={ORDER_FILTERS}
             values={orderParams.filters}
@@ -500,7 +500,7 @@ function TradesPageInner() {
         </TabsContent>
 
         {/* Risk Events Tab */}
-        <TabsContent value="risk-events" className="space-y-3">
+        <TabsContent value="risk-events" className="min-h-0 flex flex-col gap-3">
           <DataTableToolbar
             filters={RISK_FILTERS}
             values={riskParams.filters}

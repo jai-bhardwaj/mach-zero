@@ -56,7 +56,7 @@ export function RiskEventsTable({
       emptyDescription="No risk limit breaches detected in this time period."
       estimateSize={40}
       overscan={15}
-      maxHeight={600}
+      fill
     />
   );
 }
