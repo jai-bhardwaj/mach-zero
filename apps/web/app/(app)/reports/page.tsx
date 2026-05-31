@@ -167,8 +167,33 @@ export default function ReportsPage() {
     </div>
   );
 
+  // Failed to load — distinct from "no data". Reports can fail if the trading
+  // data service is unavailable or a query times out; don't masquerade it as
+  // an empty state.
+  if (!isLoading && hasError) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <PageHeader title="Reports" actions={periodSelector} />
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+          </div>
+          <h3 className="text-sm font-medium text-foreground">Couldn&apos;t load reports</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground max-w-sm">
+            The trading data service didn&apos;t respond in time. This can happen under heavy load — try again.
+          </p>
+          <div className="mt-4">
+            <button onClick={() => window.location.reload()} className="rounded-md border border-border bg-card px-4 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors">
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show empty state when no data exists
-  if ((!isLoading && totalTrades === 0 && totalOrders === 0) || hasError) {
+  if (!isLoading && totalTrades === 0 && totalOrders === 0) {
     return (
       <div className="space-y-4 sm:space-y-6">
         <PageHeader title="Reports" actions={periodSelector} />
