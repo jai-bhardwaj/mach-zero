@@ -59,3 +59,50 @@ export function realizedPnlSeries(fills: PnlFill[]): number[] {
 
   return out;
 }
+
+export interface DatedFill extends PnlFill {
+  // QuestDB timestamp (ISO string or epoch-ms number).
+  timestamp: string | number;
+}
+
+export interface DailyPnl {
+  date: string; // UTC calendar day, YYYY-MM-DD
+  pnl: number; // realized P&L *generated that day*
+}
+
+/**
+ * Realized P&L bucketed by UTC calendar day. Folds the chronologically-ordered
+ * fills once (average-cost, per symbol), then attributes each fill's *increment*
+ * of cumulative realized P&L to the day of that fill. `total` is the cumulative
+ * realized P&L over the whole input — i.e. the last cumulative value.
+ *
+ * This is the correct daily P&L: closing a position on day N realizes the gain
+ * on day N, regardless of when the position was opened. The previous naive
+ * `SUM(buy=-value, sell=+value)` per day reported raw cashflow, which labels an
+ * open one-sided position as profit/loss it has not actually realized.
+ *
+ * Fills MUST be passed in chronological (ascending-timestamp) order.
+ */
+export function realizedPnlDaily(fills: DatedFill[]): {
+  daily: DailyPnl[];
+  total: number;
+} {
+  const cumulative = realizedPnlSeries(fills);
+  const byDay = new Map<string, number>();
+  let prev = 0;
+
+  for (let i = 0; i < fills.length; i++) {
+    const cur = cumulative[i];
+    const delta = cur - prev;
+    prev = cur;
+    if (delta === 0) continue;
+    const day = new Date(fills[i].timestamp).toISOString().slice(0, 10);
+    byDay.set(day, (byDay.get(day) ?? 0) + delta);
+  }
+
+  const daily: DailyPnl[] = [...byDay.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([date, pnl]) => ({ date, pnl: Math.round(pnl * 100) / 100 }));
+
+  return { daily, total: cumulative.length ? cumulative[cumulative.length - 1] : 0 };
+}

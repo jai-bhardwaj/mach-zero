@@ -90,6 +90,7 @@ export default function ReportsPage() {
   const totalPnl = perfData?.summary?.total_pnl ?? 0;
   const totalTrades = perfData?.summary?.total_trades ?? 0;
   const avgTradeValue = perfData?.summary?.avg_trade_value ?? 0;
+  const pnlCapped = perfData?.capped ?? false;
 
   const buyCount =
     perfData?.sideBreakdown?.find((s) => s.side === 1)?.count ?? 0;
@@ -230,7 +231,7 @@ export default function ReportsPage() {
         <MetricStrip
           metrics={[
             {
-              label: "Total P&L",
+              label: "Realized P&L",
               value: formatPnl(totalPnl),
               changeColor: pnlColor(totalPnl),
             },
@@ -249,9 +250,15 @@ export default function ReportsPage() {
           ]}
         />
 
+        {pnlCapped && (
+          <p className="text-[11px] text-orange-400">
+            High trade volume — realized P&amp;L reflects the earliest fills in this period.
+          </p>
+        )}
+
         {/* Daily P&L bar chart */}
         <div className="border-t border-border/50 pt-4 mt-4">
-          <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Daily P&L</h3>
+          <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Daily Realized P&L</h3>
           <div className="px-2 sm:px-0">
             {dailyPnlData.length > 0 ? (
               <ResponsiveContainer width="100%" height={chartHeight}>
