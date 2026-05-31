@@ -36,14 +36,17 @@ export default async function AppLayout({
 
   return (
     <TradingModeProvider>
-      {/* h-dvh (dynamic viewport height) + overflow-hidden pins the whole app
-          shell to the visible viewport on every device/browser-chrome state,
-          so only inner regions (nav, main) scroll — never the page. */}
-      <div className="flex h-dvh max-h-dvh w-full max-w-[100vw] overflow-hidden">
-        <div className="hidden md:flex">
+      {/* h-screen (100vh) is a definite, universally-supported viewport height;
+          overflow-hidden pins the whole app shell to the viewport so only inner
+          regions (nav, main) scroll — never the page. The sidebar wrapper gets
+          its OWN h-screen rather than relying on flex-stretch, so the sidebar
+          footer (Sign out / Collapse) is always anchored to the viewport bottom
+          even in browsers that don't honor dynamic-viewport units. */}
+      <div className="flex h-screen w-full max-w-[100vw] overflow-hidden">
+        <div className="hidden h-screen md:flex">
           <Sidebar />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
           <Header />
           <main className="flex-1 overflow-auto px-3 py-4 sm:px-5 md:px-6">
             {children}
