@@ -3,7 +3,7 @@ import { queryPaginated, buildOrderBy, QuestDBUnavailableError } from "@/lib/que
 import { requireAuth, isAuthError } from "@/lib/require-auth";
 import { validateTimestamp } from "@/lib/questdb-sanitize";
 import { TRADES_SORTABLE_COLUMNS } from "@/lib/columns";
-import { prisma } from "@/lib/db";
+import { attachStrategyInfo } from "@/lib/enrich-executions";
 import type { Trade } from "@/types";
 
 export async function GET(request: NextRequest) {
@@ -53,34 +53,8 @@ export async function GET(request: NextRequest) {
       orderBy
     );
 
-    // Attribute each execution to its strategy + account + mode by joining
-    // strategy_id (the engine strategy id) back to Postgres. Scoped to this
-    // tenant so one tenant can never resolve another's strategy names.
-    const engineIds = [
-      ...new Set(
-        result.data
-          .map((t) => Number(t.strategy_id))
-          .filter((n) => Number.isFinite(n) && n > 0)
-      ),
-    ];
-    if (engineIds.length > 0) {
-      const strategies = await prisma.strategyConfig.findMany({
-        where: { tenantId: session.tenantId, engineId: { in: engineIds } },
-        select: {
-          engineId: true,
-          name: true,
-          tradingMode: true,
-          account: { select: { name: true } },
-        },
-      });
-      const byEngineId = new Map(strategies.map((s) => [s.engineId, s]));
-      result.data = result.data.map((t) => {
-        const s = byEngineId.get(Number(t.strategy_id));
-        return s
-          ? { ...t, strategy_name: s.name, account_name: s.account?.name, trading_mode: s.tradingMode }
-          : t;
-      });
-    }
+    // Attribute each execution to its strategy/account/mode (tenant-scoped).
+    result.data = await attachStrategyInfo(result.data, session.tenantId);
 
     return NextResponse.json(result);
   } catch (err) {

@@ -136,11 +136,14 @@ public:
     }
 
     // Write an order event in ILP format.
-    void writeOrder(uint32_t tenantId, uint64_t orderId, uint64_t symbolId,
-                    uint8_t side, int64_t price, uint64_t quantity,
-                    const char* status, uint64_t timestampNanos) {
+    void writeOrder(uint32_t tenantId, uint64_t strategyId, uint64_t orderId,
+                    uint64_t symbolId, uint8_t side, int64_t price,
+                    uint64_t quantity, const char* status,
+                    uint64_t timestampNanos) {
         buffer_.append("orders tenant_id=\"");
         buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",strategy_id=\"");
+        buffer_.append(std::to_string(strategyId));
         buffer_.append("\",symbol_id=");
         buffer_.append(std::to_string(symbolId));
         buffer_.append("i,order_id=");

@@ -86,6 +86,9 @@ export interface Order {
   status: string;
   strategy_id?: string;
   trading_mode?: string;
+  // Joined from Postgres (StrategyConfig.engineId == strategy_id) in /api/orders.
+  strategy_name?: string;
+  account_name?: string;
   timestamp: string;
 }
 

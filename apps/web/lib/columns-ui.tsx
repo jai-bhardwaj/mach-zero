@@ -161,11 +161,22 @@ export function getOrderColumns(): ColumnDef<Order, unknown>[] {
     },
     {
       accessorKey: "symbol_id",
-      header: ({ column }) => <DataTableSortHeader column={column} title="Symbol" />,
+      header: ({ column }) => <DataTableSortHeader column={column} title="Market" />,
       cell: ({ getValue }) => (
         <span className="font-semibold">{getSymbolName(getValue<number>())}</span>
       ),
       enableSorting: true,
+    },
+    {
+      accessorKey: "strategy_name",
+      header: "Strategy",
+      cell: ({ getValue }) => {
+        const name = getValue<string | undefined>();
+        return name
+          ? <span>{name}</span>
+          : <span className="text-muted-foreground/50">—</span>;
+      },
+      enableSorting: false,
     },
     {
       accessorKey: "side",

@@ -60,8 +60,8 @@ TEST(QuestDBSink, WriteOrderIncludesTenantId) {
     cfg.batchSize = 1000;
     QuestDBSink sink(cfg);
 
-    sink.writeOrder(/*tenantId=*/42, /*orderId=*/100, /*symbolId=*/1, /*side=*/1,
-                    /*price=*/5000000000000LL, /*quantity=*/100000000ULL,
+    sink.writeOrder(/*tenantId=*/42, /*strategyId=*/3, /*orderId=*/100, /*symbolId=*/1,
+                    /*side=*/1, /*price=*/5000000000000LL, /*quantity=*/100000000ULL,
                     "validated", 1000000000ULL);
     EXPECT_EQ(sink.pendingLines(), 1u);
     // Buffer should contain the tenant_id tag
@@ -111,12 +111,13 @@ TEST(QuestDBSink, OrderLineHasNoNumericTags) {
     QuestDBSink::Config cfg;
     cfg.batchSize = 1000;
     QuestDBSink sink(cfg);
-    sink.writeOrder(42, 100, 1, 1, 5000000000000LL, 100000000ULL, "filled", 1000000000ULL);
+    sink.writeOrder(42, 3, 100, 1, 1, 5000000000000LL, 100000000ULL, "filled", 1000000000ULL);
 
     std::string line(sink.bufferContents());
     EXPECT_EQ(measurementOf(line), "orders");
     EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
     EXPECT_NE(line.find("order_id=100i"), std::string::npos);
+    EXPECT_NE(line.find("strategy_id=\"3\""), std::string::npos);
     EXPECT_NE(line.find("status=\"filled\""), std::string::npos);
 }
 

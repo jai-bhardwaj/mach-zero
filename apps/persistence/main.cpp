@@ -130,9 +130,9 @@ int main() {
                     OrderRequest req;
                     req.wrapForDecode(data, MessageHeader::encodedLength(),
                                       hdr.blockLength(), hdr.version(), length);
-                    sink.writeOrder(req.tenantId(), req.orderId(), req.symbolId(),
-                                   req.sideRaw(), req.price(), req.quantity(),
-                                   "validated", req.timestamp());
+                    sink.writeOrder(req.tenantId(), req.strategyId(), req.orderId(),
+                                   req.symbolId(), req.sideRaw(), req.price(),
+                                   req.quantity(), "validated", req.timestamp());
                     orderInfo[req.orderId()] = { req.sideRaw(), req.strategyId() };
                     ++orderCount;
                 }
@@ -159,9 +159,10 @@ int main() {
                         side = infoIt->second.side;
                         strategyId = infoIt->second.strategyId;
                     }
-                    sink.writeOrder(ack.tenantId(), ack.orderId(), ack.symbolId(), side,
-                                   ack.avgPrice(), ack.filledQuantity(),
-                                   ackStatusString(statusRaw), ack.timestamp());
+                    sink.writeOrder(ack.tenantId(), strategyId, ack.orderId(),
+                                   ack.symbolId(), side, ack.avgPrice(),
+                                   ack.filledQuantity(), ackStatusString(statusRaw),
+                                   ack.timestamp());
                     // A (partial) fill is one of the tenant's executed trades —
                     // record it in the trades table, attributed to the strategy.
                     if (statusRaw == OrderStatus::Value::Filled ||

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryPaginated, buildOrderBy, QuestDBUnavailableError } from "@/lib/questdb";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
-import { validateTradingMode, validateOrderStatus, validateTimestamp } from "@/lib/questdb-sanitize";
+import { validateOrderStatus, validateTimestamp } from "@/lib/questdb-sanitize";
 import { ORDERS_SORTABLE_COLUMNS } from "@/lib/columns";
+import { attachStrategyInfo } from "@/lib/enrich-executions";
 import type { Order } from "@/types";
 
 export async function GET(request: NextRequest) {
@@ -33,9 +34,8 @@ export async function GET(request: NextRequest) {
   if (Number.isFinite(parsedSide)) conditions.push(`side = ${parsedSide}`);
   const validStatus = status ? validateOrderStatus(status) : null;
   if (validStatus) conditions.push(`status = '${validStatus}'`);
-  const tradingMode = params.get("trading_mode");
-  const validMode = tradingMode ? validateTradingMode(tradingMode) : null;
-  if (validMode) conditions.push(`trading_mode = '${validMode}'`);
+  // trading_mode is not stored on the QuestDB row — it's joined from the
+  // strategy below, so there's no server-side trading_mode filter here.
   const start = params.get("start");
   const validStart = start ? validateTimestamp(start) : null;
   if (validStart) conditions.push(`timestamp >= '${validStart}'`);
@@ -55,6 +55,10 @@ export async function GET(request: NextRequest) {
       offset,
       orderBy
     );
+
+    // Attribute each order to its strategy/account/mode (tenant-scoped).
+    result.data = await attachStrategyInfo(result.data, session.tenantId);
+
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof QuestDBUnavailableError) {
