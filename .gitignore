@@ -93,3 +93,8 @@ Thumbs.db
 
 # --- [ Claude Code ] ---
 .claude/worktrees/
+
+# --- [ Local dev artifacts ] ---
+.playwright-mcp/
+infra/tuning/aeron-all.jar
+.claude/scheduled_tasks.lock
