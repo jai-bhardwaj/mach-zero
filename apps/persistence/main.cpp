@@ -16,7 +16,6 @@
 #include <csignal>
 #include <thread>
 #include <cstdlib>
-#include <unordered_map>
 #include <cstdint>
 
 using namespace mach_zero::transport;
@@ -65,11 +64,9 @@ int main() {
     uint64_t tradeCount = 0, orderCount = 0, ackCount = 0;
     uint64_t reconnectCounter = 0;
 
-    // OrderAck carries no `side` or `strategyId`, so correlate them from the
-    // validated OrderRequest we already see on VALIDATED_ORDER. Bounded to open
-    // orders: entries are erased on a terminal ack (Filled/Cancelled/Rejected).
-    struct OrderInfo { uint8_t side; uint64_t strategyId; };
-    std::unordered_map<uint64_t, OrderInfo> orderInfo;
+    // OrderAck now carries side + strategyId directly (SBE), so fills are
+    // attributed straight from the ack — no in-memory orderId correlation that
+    // would lose attribution across a persistence restart.
 
     // Map the SBE OrderStatus to the lowercase status SYMBOL the web expects,
     // instead of collapsing every ack to "acked" (which hid fills behind
@@ -133,7 +130,6 @@ int main() {
                     sink.writeOrder(req.tenantId(), req.strategyId(), req.orderId(),
                                    req.symbolId(), req.sideRaw(), req.price(),
                                    req.quantity(), "validated", req.timestamp());
-                    orderInfo[req.orderId()] = { req.sideRaw(), req.strategyId() };
                     ++orderCount;
                 }
             }, 50);
@@ -151,14 +147,9 @@ int main() {
                     ack.wrapForDecode(data, MessageHeader::encodedLength(),
                                       hdr.blockLength(), hdr.version(), length);
                     uint8_t statusRaw = ack.statusRaw();
-                    // Recover side + strategyId from the originating order.
-                    uint8_t side = 0;
-                    uint64_t strategyId = 0;
-                    auto infoIt = orderInfo.find(ack.orderId());
-                    if (infoIt != orderInfo.end()) {
-                        side = infoIt->second.side;
-                        strategyId = infoIt->second.strategyId;
-                    }
+                    // side + strategyId come straight off the ack now.
+                    uint8_t side = ack.sideRaw();
+                    uint64_t strategyId = ack.strategyId();
                     sink.writeOrder(ack.tenantId(), strategyId, ack.orderId(),
                                    ack.symbolId(), side, ack.avgPrice(),
                                    ack.filledQuantity(), ackStatusString(statusRaw),
@@ -170,12 +161,6 @@ int main() {
                         sink.writeFill(ack.tenantId(), strategyId, ack.symbolId(), side,
                                        ack.avgPrice(), ack.filledQuantity(),
                                        ack.venueRaw(), ack.timestamp());
-                    }
-                    // Drop correlation state once the order can no longer fill.
-                    if (statusRaw == OrderStatus::Value::Filled ||
-                        statusRaw == OrderStatus::Value::Cancelled ||
-                        statusRaw == OrderStatus::Value::Rejected) {
-                        orderInfo.erase(ack.orderId());
                     }
                     ++ackCount;
                 } else if (hdr.templateId() == OrderReject::sbeTemplateId()) {

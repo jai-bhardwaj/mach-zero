@@ -26,6 +26,7 @@ struct OpenOrder {
     uint64_t quantity;
     uint64_t filledQty;
     uint32_t tenantId;   // Carries tenantId from OrderRequest to OrderAck
+    uint64_t strategyId; // Carries strategyId from OrderRequest to OrderAck
 };
 
 // Simulated exchange for backtesting.
@@ -44,11 +45,12 @@ public:
         o.quantity = order.quantity();
         o.filledQty = 0;
         o.tenantId = order.tenantId();
+        o.strategyId = order.strategyId();
 
         openOrders_[o.orderId] = o;
 
         // Send new ack
-        sendAck(o.orderId, o.symbolId, OrderStatus::Value::New, 0, 0, o.tenantId);
+        sendAck(o, OrderStatus::Value::New, 0, 0);
     }
 
     // Process a market trade against open orders
@@ -71,13 +73,11 @@ public:
                 order.filledQty += fillQty;
 
                 if (order.filledQty >= order.quantity) {
-                    sendAck(id, symbolId, OrderStatus::Value::Filled,
-                            order.quantity, tradePrice, order.tenantId);
+                    sendAck(order, OrderStatus::Value::Filled, order.quantity, tradePrice);
                     toRemove.push_back(id);
                     ++totalFills_;
                 } else {
-                    sendAck(id, symbolId, OrderStatus::Value::PartialFill,
-                            order.filledQty, tradePrice, order.tenantId);
+                    sendAck(order, OrderStatus::Value::PartialFill, order.filledQty, tradePrice);
                 }
             }
         }
@@ -92,8 +92,7 @@ public:
         auto it = openOrders_.find(orderId);
         if (it == openOrders_.end()) return false;
 
-        sendAck(orderId, it->second.symbolId, OrderStatus::Value::Cancelled,
-                it->second.filledQty, 0, it->second.tenantId);
+        sendAck(it->second, OrderStatus::Value::Cancelled, it->second.filledQty, 0);
         openOrders_.erase(it);
         return true;
     }
@@ -102,23 +101,28 @@ public:
     uint64_t totalFills() const { return totalFills_; }
 
 private:
-    void sendAck(uint64_t orderId, uint64_t symbolId, OrderStatus::Value status,
-                 uint64_t filledQty, int64_t avgPrice, uint32_t tenantId) {
+    // Emit an ack for an order, carrying its side + strategyId so downstream
+    // (persistence/web) can attribute the fill without correlating back to the
+    // original request.
+    void sendAck(const OpenOrder& o, OrderStatus::Value status,
+                 uint64_t filledQty, int64_t avgPrice) {
         if (!fillCallback_) return;
 
         char buf[256];
         OrderAck ack;
         ack.wrapAndApplyHeader(buf, 0, sizeof(buf));
-        ack.orderId(orderId)
-           .clientOrderId(orderId)
-           .symbolId(symbolId)
+        ack.orderId(o.orderId)
+           .clientOrderId(o.orderId)
+           .symbolId(o.symbolId)
            .status(status)
            .filledQuantity(filledQty)
            .avgPrice(avgPrice)
-           .exchangeOrderId(orderId)
+           .exchangeOrderId(o.orderId)
            .venue(Venue::Unknown)
            .timestamp(0)
-           .tenantId(tenantId);
+           .tenantId(o.tenantId)
+           .side(o.side)
+           .strategyId(o.strategyId);
 
         fillCallback_(buf, OrderAck::sbeBlockAndHeaderLength());
     }

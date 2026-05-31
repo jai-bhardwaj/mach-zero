@@ -137,7 +137,9 @@ TEST(SbeRoundtrip, OrderAck) {
         .exchangeOrderId(99999)
         .venue(Venue::Binance)
         .timestamp(2222222222ULL)
-        .tenantId(7u);
+        .tenantId(7u)
+        .side(Side::Sell)
+        .strategyId(4242u);
 
     MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
     OrderAck decoder;
@@ -151,6 +153,8 @@ TEST(SbeRoundtrip, OrderAck) {
     EXPECT_EQ(decoder.avgPrice(), 5000500000LL);
     EXPECT_EQ(decoder.exchangeOrderId(), 99999u);
     EXPECT_EQ(decoder.tenantId(), 7u);
+    EXPECT_EQ(decoder.side(), Side::Sell);
+    EXPECT_EQ(decoder.strategyId(), 4242u);
 }
 
 TEST(SbeRoundtrip, OrderReject) {

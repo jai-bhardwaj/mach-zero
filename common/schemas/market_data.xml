@@ -138,6 +138,8 @@
         <field name="venue"            id="8"  type="Venue"/>
         <field name="timestamp"        id="9"  type="Timestamp"/>
         <field name="tenantId"         id="10" type="uint32"/>
+        <field name="side"             id="11" type="Side"/>
+        <field name="strategyId"       id="12" type="uint64"/>
     </sbe:message>
 
     <sbe:message name="OrderReject" id="12" description="Order Rejection">
