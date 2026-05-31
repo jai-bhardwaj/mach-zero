@@ -119,8 +119,10 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Navigation with section grouping */}
-      <nav className="flex-1 overflow-y-auto p-2">
+      {/* Navigation with section grouping.
+          min-h-0 lets the nav shrink and scroll instead of pushing the footer
+          (user + Sign out + collapse) below the viewport when items overflow. */}
+      <nav className="flex-1 min-h-0 overflow-y-auto p-2">
         {groupedItems.map((group, groupIndex) => (
           <div key={group.section ?? `group-${groupIndex}`}>
             {/* Section separator (not for first group) */}
