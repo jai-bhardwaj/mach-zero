@@ -4,7 +4,6 @@ import { type ColumnDef } from "@tanstack/react-table";
 import type { Trade, Order, RiskEvent, SymbolState, User } from "@/types";
 import {
   getSymbolName,
-  getVenueName,
   getSideName,
   formatPrice,
   formatQuantity,
@@ -36,20 +35,34 @@ export function getTradeColumns(): ColumnDef<Trade, unknown>[] {
       enableSorting: true,
     },
     {
+      accessorKey: "account_name",
+      header: "Account",
+      cell: ({ getValue }) => {
+        const name = getValue<string | undefined>();
+        return name
+          ? <span className="text-muted-foreground">{name}</span>
+          : <span className="text-muted-foreground/50">—</span>;
+      },
+      enableSorting: false,
+    },
+    {
       accessorKey: "symbol_id",
-      header: ({ column }) => <DataTableSortHeader column={column} title="Symbol" />,
+      header: ({ column }) => <DataTableSortHeader column={column} title="Market" />,
       cell: ({ getValue }) => (
         <span className="font-semibold">{getSymbolName(getValue<number>())}</span>
       ),
       enableSorting: true,
     },
     {
-      accessorKey: "venue",
-      header: ({ column }) => <DataTableSortHeader column={column} title="Venue" />,
-      cell: ({ getValue }) => (
-        <span className="text-muted-foreground">{getVenueName(getValue<number>())}</span>
-      ),
-      enableSorting: true,
+      accessorKey: "strategy_name",
+      header: "Strategy",
+      cell: ({ getValue }) => {
+        const name = getValue<string | undefined>();
+        return name
+          ? <span>{name}</span>
+          : <span className="text-muted-foreground/50">—</span>;
+      },
+      enableSorting: false,
     },
     {
       accessorKey: "side",

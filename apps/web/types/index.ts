@@ -70,6 +70,9 @@ export interface Trade {
   side: number;
   strategy_id?: string;
   trading_mode?: string;
+  // Joined from Postgres (StrategyConfig.engineId == strategy_id) in /api/trades.
+  strategy_name?: string;
+  account_name?: string;
   timestamp: string;
 }
 

@@ -55,9 +55,9 @@ export function TradeBlotter({
       onColumnVisibilityChange={onColumnVisibilityChange}
       isLoading={isLoading}
       isValidating={isValidating}
-      loadingSkeleton={<TableSkeleton columns={6} rows={10} />}
+      loadingSkeleton={<TableSkeleton columns={8} rows={10} />}
       emptyMessage="No trades yet"
-      emptyDescription="Connect an exchange and start a strategy to see trades here."
+      emptyDescription="Once your strategies execute in your accounts, those trades appear here."
       onRowClick={onRowClick}
       focusedRowIndex={focusedRowIndex}
       estimateSize={40}
