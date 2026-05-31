@@ -56,7 +56,11 @@ export function DateRangePicker({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5">
+      {/* flex-wrap + shrinkable inputs so the two datetime fields never run off
+          a narrow viewport (they previously stayed on one ~425px line and the
+          end input was clipped on mobile). On sm+ the inputs are content-sized
+          (w-auto, 160px min) as before; below sm they share the row width. */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <Calendar className="size-3.5 text-muted-foreground shrink-0" />
         <Input
           type="datetime-local"
@@ -64,25 +68,25 @@ export function DateRangePicker({
           max={endDate || undefined}
           onChange={(e) => onStartChange(e.target.value)}
           className={cn(
-            "h-7 w-auto min-w-[160px] text-xs",
+            "h-7 text-xs min-w-0 flex-1 sm:flex-none sm:w-auto sm:min-w-[160px]",
             !startDate && "text-muted-foreground"
           )}
           aria-label="Start date"
         />
-        <span className="text-xs text-muted-foreground">to</span>
+        <span className="text-xs text-muted-foreground shrink-0">to</span>
         <Input
           type="datetime-local"
           value={endDate ?? ""}
           min={startDate || undefined}
           onChange={(e) => onEndChange(e.target.value)}
           className={cn(
-            "h-7 w-auto min-w-[160px] text-xs",
+            "h-7 text-xs min-w-0 flex-1 sm:flex-none sm:w-auto sm:min-w-[160px]",
             !endDate && "text-muted-foreground"
           )}
           aria-label="End date"
         />
         {hasValue && (
-          <Button variant="ghost" size="xs" onClick={onClear}>
+          <Button variant="ghost" size="xs" onClick={onClear} className="shrink-0">
             Clear
           </Button>
         )}
