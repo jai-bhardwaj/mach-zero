@@ -45,6 +45,16 @@ interface EngineConfig {
   strategies: EngineStrategy[];
 }
 
+// These MUST mirror the C++ engine's StrategyLoader (core/src/strategy/
+// StrategyLoader.h). The loader FATAL-rejects the ENTIRE file on any unknown
+// type/venue or orderQuantity<=0 — so if the export ever emits such an entry
+// (e.g. a new strategy type added to the DB but not the engine), validating
+// loosely here would write a file the engine then refuses to load wholesale,
+// while the sync reported success. Reject at this boundary instead, so the
+// existing good file is left untouched and the operator gets a non-zero exit.
+const ENGINE_TYPES = new Set(["simple_spread", "momentum"]);
+const ENGINE_VENUES = new Set(["Binance", "NSE"]);
+
 /** Validate the payload is the shape StrategyLoader can consume. Throws on bad. */
 export function validateEngineConfig(data: unknown): EngineConfig {
   if (!data || typeof data !== "object") throw new Error("payload is not an object");
@@ -53,11 +63,18 @@ export function validateEngineConfig(data: unknown): EngineConfig {
   if (!Array.isArray(cfg.strategies)) throw new Error("missing 'strategies' array");
   for (const [i, s] of cfg.strategies.entries()) {
     const st = s as Record<string, unknown>;
-    if (typeof st.type !== "string") throw new Error(`strategy[${i}] missing 'type'`);
+    if (typeof st.type !== "string" || !ENGINE_TYPES.has(st.type))
+      throw new Error(`strategy[${i}] unknown 'type' (engine accepts ${[...ENGINE_TYPES].join("/")})`);
     if (typeof st.tenantId !== "number" || st.tenantId <= 0)
       throw new Error(`strategy[${i}] invalid 'tenantId' (must be > 0)`);
     if (typeof st.symbolId !== "number" || st.symbolId <= 0)
       throw new Error(`strategy[${i}] invalid 'symbolId' (must be > 0)`);
+    // venue is optional (engine defaults to Binance) but must be known if present.
+    if (st.venue !== undefined && !(typeof st.venue === "string" && ENGINE_VENUES.has(st.venue)))
+      throw new Error(`strategy[${i}] unknown 'venue' (engine accepts ${[...ENGINE_VENUES].join("/")})`);
+    // orderQuantity is required and must be > 0 — the engine FATALs on 0/missing.
+    if (typeof st.orderQuantity !== "number" || st.orderQuantity <= 0)
+      throw new Error(`strategy[${i}] invalid 'orderQuantity' (must be > 0)`);
   }
   return cfg as unknown as EngineConfig;
 }

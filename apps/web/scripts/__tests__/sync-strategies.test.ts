@@ -39,8 +39,35 @@ describe("validateEngineConfig", () => {
   it("rejects missing version / strategies / bad ids", () => {
     expect(() => validateEngineConfig({ strategies: [] })).toThrow(/version/);
     expect(() => validateEngineConfig({ version: 1 })).toThrow(/strategies/);
-    expect(() => validateEngineConfig({ version: 1, strategies: [{ type: "x", tenantId: 0, symbolId: 1 }] })).toThrow(/tenantId/);
-    expect(() => validateEngineConfig({ version: 1, strategies: [{ type: "x", tenantId: 1, symbolId: 0 }] })).toThrow(/symbolId/);
+    // use a valid type so these exercise the id checks, not the type check
+    const base = { type: "simple_spread", orderQuantity: 1, symbolId: 1, tenantId: 1 };
+    expect(() => validateEngineConfig({ version: 1, strategies: [{ ...base, tenantId: 0 }] })).toThrow(/tenantId/);
+    expect(() => validateEngineConfig({ version: 1, strategies: [{ ...base, symbolId: 0 }] })).toThrow(/symbolId/);
+  });
+
+  // The validator must mirror the engine's StrategyLoader, which FATAL-rejects
+  // the whole file on these — catch them at the sync boundary instead.
+  it("rejects an unknown strategy type (engine would reject the whole file)", () => {
+    expect(() =>
+      validateEngineConfig({ version: 1, strategies: [{ type: "grid", tenantId: 1, symbolId: 1, orderQuantity: 1 }] })
+    ).toThrow(/type/);
+  });
+  it("rejects an unknown venue but allows it absent (engine defaults to Binance)", () => {
+    expect(() =>
+      validateEngineConfig({ version: 1, strategies: [{ type: "simple_spread", tenantId: 1, symbolId: 1, orderQuantity: 1, venue: "Kraken" }] })
+    ).toThrow(/venue/);
+    // venue omitted is fine
+    expect(
+      validateEngineConfig({ version: 1, strategies: [{ type: "simple_spread", tenantId: 1, symbolId: 1, orderQuantity: 1 }] }).strategies
+    ).toHaveLength(1);
+  });
+  it("rejects orderQuantity <= 0 or missing (engine FATALs on 0)", () => {
+    expect(() =>
+      validateEngineConfig({ version: 1, strategies: [{ type: "simple_spread", tenantId: 1, symbolId: 1, orderQuantity: 0 }] })
+    ).toThrow(/orderQuantity/);
+    expect(() =>
+      validateEngineConfig({ version: 1, strategies: [{ type: "momentum", tenantId: 1, symbolId: 2 }] })
+    ).toThrow(/orderQuantity/);
   });
 });
 
