@@ -55,7 +55,6 @@ interface RejectReason {
 interface OrderStats {
   totalOrders: number;
   filledOrders: number;
-  validatedOrders: number;
   fillRate: number;
 }
 
