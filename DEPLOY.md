@@ -121,6 +121,54 @@ docker compose -f docker-compose.prod.yml logs -f
 docker exec -i mz-questdb bash -c "curl -G 'http://localhost:9000/exec' --data-urlencode 'query=$(cat /dev/stdin)'" < infra/schema/questdb_tables.sql
 ```
 
+### Sync strategies from the dashboard to the engine
+
+Strategies are created/edited in the web dashboard (Postgres). The engine reads
+them from its `STRATEGIES_FILE` at startup. `apps/web/scripts/sync-strategies.ts`
+bridges the two: it GETs `/api/internal/strategies` (which renders **RUNNING**
+strategies as the exact `STRATEGIES_FILE` JSON) and writes the file **atomically**,
+only when the content changed. A bad fetch (non-200 / network / invalid shape)
+exits non-zero and **leaves the existing file untouched** — it never clobbers a
+known-good config feeding the live engine.
+
+Run it on the engine host on a timer. Env vars:
+
+| Var | Purpose | Example |
+|-----|---------|---------|
+| `STRATEGIES_SYNC_URL` | the dashboard endpoint | `https://<vercel-app>/api/internal/strategies` |
+| `BRIDGE_API_KEY` | shared secret (same value set in Vercel) | `…` |
+| `STRATEGIES_FILE` | path the engine loads | `/opt/mach-zero/strategies.json` |
+
+**systemd timer** (recommended — pull every 60s):
+
+```ini
+# /etc/systemd/system/mz-strategy-sync.service
+[Service]
+Type=oneshot
+Environment=STRATEGIES_SYNC_URL=https://<vercel-app>/api/internal/strategies
+Environment=BRIDGE_API_KEY=<same-as-vercel>
+Environment=STRATEGIES_FILE=/opt/mach-zero/strategies.json
+WorkingDirectory=/opt/mach-zero/repo/apps/web
+ExecStart=/usr/bin/npm run sync:strategies
+
+# /etc/systemd/system/mz-strategy-sync.timer
+[Timer]
+OnUnitActiveSec=60s
+OnBootSec=30s
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+sudo systemctl enable --now mz-strategy-sync.timer
+```
+
+Or a plain cron line (`crontab -e`): `* * * * * cd /opt/mach-zero/repo/apps/web && STRATEGIES_SYNC_URL=… BRIDGE_API_KEY=… STRATEGIES_FILE=… npm run sync:strategies`.
+
+> The engine reads `STRATEGIES_FILE` **at startup**, so a synced change applies
+> on the next engine restart. Live hot-reload (engine re-reading the file without
+> a restart) is a separate, unimplemented enhancement.
+
 ---
 
 ## 4. GitHub Actions (Auto-Deploy)

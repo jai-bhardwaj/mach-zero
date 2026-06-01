@@ -115,6 +115,7 @@ Roles: `SUPER_ADMIN`, `ADMIN`, `RISK_MANAGER`, `TRADER`, `VIEWER`. Enforced by `
 - **Vercel** auto-deploys `apps/web/` on push to `main`. Root Directory set to `apps/web`. Build command `npx prisma generate && npm run build` (per `vercel.json`).
 - **Oracle VM** is updated via GitHub Actions SSHing in and running `docker compose -f infra/docker-compose.prod.yml up -d --build`.
 - **Supabase** migrations are run manually from a dev machine with `DATABASE_URL` + `DIRECT_DATABASE_URL` pointed at Supabase. Supabase free-tier projects auto-pause after 7 days of inactivity and are eligible for deletion after ~90 days paused — keep at least one cron-equivalent ping or upgrade the plan for production projects.
+- **Strategy sync (web → engine):** the engine loads strategies from `STRATEGIES_FILE`, but they're authored in the dashboard (Postgres). `GET /api/internal/strategies` (BRIDGE_API_KEY auth) renders RUNNING strategies as the engine's JSON; `apps/web/scripts/sync-strategies.ts` (`npm run sync:strategies`) pulls it and atomically writes the file. Run it on the engine host via a systemd timer/cron — see `DEPLOY.md`. The engine reads the file at startup; hot-reload is not implemented.
 
 Full step-by-step in `DEPLOY.md`. Environment variable list is in `apps/web/.env.production.example`.
 
