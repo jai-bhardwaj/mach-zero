@@ -130,13 +130,32 @@ export function getTradeColumns(): ColumnDef<Trade, unknown>[] {
 
 // ── Order Column Defs ───────────────────────────────────────────────
 
+// Keyed by the LOWERCASE status strings persistence writes to QuestDB
+// (validated/new/partial/filled/cancelled/rejected/pending_*). The previous
+// UPPERCASE keys never matched the lowercase data, so every badge fell back to
+// gray "secondary" and the color semantics were lost.
 const STATUS_VARIANT: Record<string, BadgeVariant> = {
-  NEW: "pending",
-  ACKED: "pending",
-  FILLED: "running",
-  PARTIALLY_FILLED: "warning",
-  REJECTED: "destructive",
-  CANCELLED: "stopped",
+  validated: "pending",
+  new: "pending",
+  acked: "pending",
+  pending_new: "pending",
+  pending_cancel: "pending",
+  partial: "warning",
+  filled: "running",
+  rejected: "destructive",
+  cancelled: "stopped",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  validated: "Validated",
+  new: "New",
+  acked: "Acked",
+  pending_new: "Pending",
+  pending_cancel: "Cancelling",
+  partial: "Partial",
+  filled: "Filled",
+  rejected: "Rejected",
+  cancelled: "Cancelled",
 };
 
 export function getOrderColumns(): ColumnDef<Order, unknown>[] {
@@ -232,7 +251,7 @@ export function getOrderColumns(): ColumnDef<Order, unknown>[] {
       cell: ({ getValue }) => {
         const status = getValue<string>();
         const variant: BadgeVariant = STATUS_VARIANT[status] ?? "secondary";
-        return <Badge variant={variant}>{status}</Badge>;
+        return <Badge variant={variant}>{STATUS_LABEL[status] ?? status}</Badge>;
       },
       enableSorting: true,
     },
