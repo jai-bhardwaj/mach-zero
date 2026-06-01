@@ -43,13 +43,16 @@ const SIDE_OPTIONS = [
   { label: "Sell", value: "2" },
 ];
 
+// Values are the lowercase status strings persistence writes to QuestDB; the
+// previous UPPERCASE values never matched (case-sensitive) and omitted the most
+// common statuses (validated, partial), so the Status filter returned 0 rows.
 const STATUS_OPTIONS = [
-  { label: "New", value: "NEW" },
-  { label: "Acked", value: "ACKED" },
-  { label: "Filled", value: "FILLED" },
-  { label: "Partially Filled", value: "PARTIALLY_FILLED" },
-  { label: "Rejected", value: "REJECTED" },
-  { label: "Cancelled", value: "CANCELLED" },
+  { label: "Validated", value: "validated" },
+  { label: "New", value: "new" },
+  { label: "Partially Filled", value: "partial" },
+  { label: "Filled", value: "filled" },
+  { label: "Rejected", value: "rejected" },
+  { label: "Cancelled", value: "cancelled" },
 ];
 
 const MODE_OPTIONS = [

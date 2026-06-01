@@ -37,10 +37,19 @@ describe("validateTradingMode", () => {
 });
 
 describe("validateOrderStatus", () => {
-  it("accepts whitelist values (case-insensitive)", () => {
-    expect(validateOrderStatus("filled")).toBe("FILLED");
-    expect(validateOrderStatus("FILLED")).toBe("FILLED");
-    expect(validateOrderStatus("Acked")).toBe("ACKED");
+  it("accepts whitelist values case-insensitively, returns lowercase (matches stored values)", () => {
+    expect(validateOrderStatus("filled")).toBe("filled");
+    expect(validateOrderStatus("FILLED")).toBe("filled");
+    expect(validateOrderStatus("Validated")).toBe("validated");
+    // "partial" / "validated" are the most common rows — must be selectable.
+    expect(validateOrderStatus("partial")).toBe("partial");
+    expect(validateOrderStatus("validated")).toBe("validated");
+  });
+
+  it("rejects statuses that the engine never emits", () => {
+    expect(validateOrderStatus("partial_fill")).toBeNull();
+    expect(validateOrderStatus("partially_filled")).toBeNull();
+    expect(validateOrderStatus("pending")).toBeNull();
   });
 
   it.each([

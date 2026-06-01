@@ -4,15 +4,20 @@
 
 const VALID_TRADING_MODES = new Set(["MOCK", "LIVE"]);
 
+// Must match the lowercase status strings persistence writes to QuestDB
+// (apps/persistence/main.cpp ackStatusString + the "validated" written by
+// writeOrder). QuestDB string equality is case-sensitive, so the filter value
+// must be lowercase to match stored rows.
 const VALID_ORDER_STATUSES = new Set([
+  "validated",
   "new",
-  "acked",
-  "pending",
+  "partial",
   "filled",
-  "partial_fill",
-  "partially_filled",
-  "rejected",
   "cancelled",
+  "rejected",
+  "pending_new",
+  "pending_cancel",
+  "acked",
 ]);
 
 /** Returns the value if it's a valid trading mode, otherwise null. */
@@ -20,11 +25,12 @@ export function validateTradingMode(val: string): string | null {
   return VALID_TRADING_MODES.has(val) ? val : null;
 }
 
-/** Returns the value (uppercased) if it's a valid order status, otherwise null.
- *  Accepts both UPPERCASE and lowercase input (e.g. "filled" → "FILLED"). */
+/** Returns the canonical lowercase status if valid, otherwise null. Accepts any
+ *  input case (e.g. "FILLED" → "filled") and returns lowercase to match the
+ *  case-sensitive values QuestDB stores. */
 export function validateOrderStatus(val: string): string | null {
   const lower = val.toLowerCase();
-  return VALID_ORDER_STATUSES.has(lower) ? lower.toUpperCase() : null;
+  return VALID_ORDER_STATUSES.has(lower) ? lower : null;
 }
 
 /** Returns the value if it contains only safe characters (alphanumeric, underscore, hyphen). */
