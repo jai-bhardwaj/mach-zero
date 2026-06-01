@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:push:local": "npx tsx scripts/db-push-local.ts",
     "db:seed": "npx tsx prisma/seed.ts",
     "sync:strategies": "npx tsx scripts/sync-strategies.ts"
   },
