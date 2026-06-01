@@ -15,6 +15,7 @@
 #include <mach_zero_market_data/RiskCommandType.h>
 
 #include <cstdlib>
+#include <sys/stat.h>
 
 #include <iostream>
 #include <thread>
@@ -69,6 +70,17 @@ int main() {
         MZ_INFO(("Loaded " + std::to_string(loadedStrategies.size()) +
                  " strategies from STRATEGIES_FILE").c_str());
     }
+
+    // Track STRATEGIES_FILE mtime so the main loop can hot-reload when the sync
+    // script (apps/web/scripts/sync-strategies.ts) rewrites it — no restart
+    // needed. 0 = not present / not tracked.
+    auto fileMtime = [](const char* path) -> long {
+        struct stat st{};
+        return (path && *path && ::stat(path, &st) == 0)
+                   ? static_cast<long>(st.st_mtime)
+                   : 0;
+    };
+    long lastStratMtime = fileMtime(stratPath);
 
     // Demo strategies are gated behind RUN_DEMO_STRATEGIES (default off):
     // they were previously always-on and flooded the risk gate with orders
@@ -125,6 +137,30 @@ int main() {
         if (nowTs - lastRateReset >= std::chrono::seconds(1)) {
             riskEngine.resetRateCounters();
             lastRateReset = nowTs;
+
+            // Hot-reload STRATEGIES_FILE when it changes (checked once/sec, on
+            // this single processing thread between polls — no concurrency
+            // hazard). A failed reload (bad/partial file) is logged and IGNORED:
+            // the engine keeps running its existing strategies. The sync script
+            // writes atomically (temp+rename) so we never observe a torn file.
+            if (stratPath && *stratPath) {
+                long m = fileMtime(stratPath);
+                if (m != 0 && m != lastStratMtime) {
+                    std::vector<std::shared_ptr<Strategy>> reloaded;
+                    if (loadStrategiesFromFile(stratPath, reloaded)) {
+                        engine.replaceStrategies(std::move(reloaded));
+                        lastStratMtime = m;
+                        MZ_INFO(("Hot-reloaded STRATEGIES_FILE: now running " +
+                                 std::to_string(engine.strategyCount()) +
+                                 " strategies").c_str());
+                    } else {
+                        // Keep lastStratMtime unchanged so we retry on the next
+                        // change rather than spamming; keep existing strategies.
+                        MZ_WARN("STRATEGIES_FILE changed but failed to parse — "
+                                "keeping existing strategies");
+                    }
+                }
+            }
         }
 
         // Poll market data

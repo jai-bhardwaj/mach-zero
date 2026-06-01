@@ -35,6 +35,18 @@ public:
         strategies_.push_back(std::move(strategy));
     }
 
+    // Atomically replace the active strategy set (used for hot-reload of
+    // STRATEGIES_FILE). Called on the engine's single processing thread between
+    // polls, so there is no concurrency hazard with processMarketData/processAck.
+    // The caller is responsible for only invoking this with a successfully
+    // parsed set — on a failed reload it should keep the existing strategies.
+    void replaceStrategies(std::vector<std::shared_ptr<Strategy>> next) {
+        strategies_.clear();
+        for (auto& s : next) addStrategy(std::move(s));
+    }
+
+    size_t strategyCount() const { return strategies_.size(); }
+
     // Process a raw SBE message from the market data stream
     void processMarketData(const char* data, size_t length) {
         MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
