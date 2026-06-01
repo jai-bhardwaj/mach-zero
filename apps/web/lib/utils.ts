@@ -72,6 +72,14 @@ export function getSideName(side: number): string {
   return SIDES[side] ?? `S${side}`;
 }
 
+// Render an engine code (snake_case / lowercase, e.g. "order_rate", "partial")
+// as a human Title Case label ("Order Rate", "Partial"). Shared so the reports
+// charts and the data-table cells format reject reasons / statuses identically.
+export function formatSnakeLabel(raw: string | null | undefined): string {
+  if (!raw) return "—";
+  return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function formatTimestamp(ts: string | number): string {
   const d = new Date(typeof ts === "number" ? ts / 1000 : ts);
   const pad = (n: number) => String(n).padStart(2, "0");

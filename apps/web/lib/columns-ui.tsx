@@ -9,6 +9,7 @@ import {
   formatQuantity,
   formatTimestamp,
   formatPnl,
+  formatSnakeLabel,
   pnlColor,
   cn,
 } from "@/lib/utils";
@@ -326,11 +327,11 @@ export function getRiskEventColumns(): ColumnDef<RiskEvent, unknown>[] {
       cell: ({ getValue }) => {
         // Persistence stores a stable snake_case reject reason (price_band,
         // position_limit, …); render it as readable Title Case.
-        const raw = getValue<string>();
-        const label = raw
-          ? raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-          : "—";
-        return <span className="text-negative">{label}</span>;
+        return (
+          <span className="text-negative">
+            {formatSnakeLabel(getValue<string>())}
+          </span>
+        );
       },
       enableSorting: true,
     },

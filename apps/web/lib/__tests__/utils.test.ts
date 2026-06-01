@@ -10,6 +10,7 @@ import {
   getVenueName,
   getSideName,
   formatTimestamp,
+  formatSnakeLabel,
 } from "../utils";
 
 describe("cn", () => {
@@ -189,5 +190,23 @@ describe("formatTimestamp", () => {
   it("pads single-digit months and days", () => {
     const result = formatTimestamp("2026-01-05T03:02:01.000Z");
     expect(result).toMatch(/01-05/);
+  });
+});
+
+describe("formatSnakeLabel", () => {
+  it("converts snake_case engine codes to Title Case", () => {
+    expect(formatSnakeLabel("order_rate")).toBe("Order Rate");
+    expect(formatSnakeLabel("price_band")).toBe("Price Band");
+    expect(formatSnakeLabel("position_limit")).toBe("Position Limit");
+  });
+  it("title-cases single lowercase words (order statuses)", () => {
+    expect(formatSnakeLabel("partial")).toBe("Partial");
+    expect(formatSnakeLabel("filled")).toBe("Filled");
+    expect(formatSnakeLabel("validated")).toBe("Validated");
+  });
+  it("returns an em dash for null/empty", () => {
+    expect(formatSnakeLabel(null)).toBe("—");
+    expect(formatSnakeLabel(undefined)).toBe("—");
+    expect(formatSnakeLabel("")).toBe("—");
   });
 });

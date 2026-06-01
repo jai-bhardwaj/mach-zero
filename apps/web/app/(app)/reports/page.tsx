@@ -4,7 +4,7 @@ import { useState, useCallback, useSyncExternalStore } from "react";
 import { usePerformance, useExecution, useVolume } from "@/hooks/useReports";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetricStrip } from "@/components/ui/metric-strip";
-import { cn, formatPrice, formatPnl, pnlColor, getSymbolName } from "@/lib/utils";
+import { cn, formatPrice, formatPnl, pnlColor, getSymbolName, formatSnakeLabel } from "@/lib/utils";
 import {
   BarChart,
   Bar,
@@ -113,12 +113,12 @@ export default function ReportsPage() {
   const totalOrders = execData?.orderStats?.totalOrders ?? 0;
 
   const rejectData = (execData?.rejectReasons ?? []).map((r) => ({
-    name: r.reason,
+    name: formatSnakeLabel(r.reason),
     value: r.count,
   }));
 
   const statusData = (execData?.statusBreakdown ?? []).map((s) => ({
-    name: s.status,
+    name: formatSnakeLabel(s.status),
     count: s.count,
   }));
 
