@@ -31,7 +31,7 @@ TEST(LatencyRegression, RiskGateP99Under5us) {
         req.orderId(i).clientOrderId(i).symbolId(1)
            .side(Side::Value::Buy).price(5000000000000LL).quantity(100000000ULL)
            .orderType(OrderType::Limit).timeInForce(TimeInForce::GTC)
-           .venue(Venue::Binance).timestamp(1000000000ULL);
+           .venue(Venue::Binance).timestamp(1000000000ULL).tenantId(1);
 
         MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
         OrderRequest decoded;
@@ -49,7 +49,7 @@ TEST(LatencyRegression, RiskGateP99Under5us) {
         req.orderId(i).clientOrderId(i).symbolId(1)
            .side(Side::Value::Buy).price(5000000000000LL).quantity(100000000ULL)
            .orderType(OrderType::Limit).timeInForce(TimeInForce::GTC)
-           .venue(Venue::Binance).timestamp(1000000000ULL);
+           .venue(Venue::Binance).timestamp(1000000000ULL).tenantId(1);
 
         MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
         OrderRequest decoded;
@@ -70,6 +70,59 @@ TEST(LatencyRegression, RiskGateP99Under5us) {
     // Regression: p99 must be under 5 microseconds
     EXPECT_LT(stats.p99, 5000u) << "Risk gate p99 exceeded 5us target: "
                                  << stats.p99 << " ns";
+}
+
+// Multi-tenant regression: 4 tenants round-robin. Budget same 5us ceiling
+// as single-tenant. If regression pushes multi-tenant above budget, the
+// first place to look is RiskState's cache layout.
+TEST(LatencyRegression, MultiTenantRiskGateP99) {
+    RiskEngine engine;
+    LatencyBench bench;
+
+    auto makeOrderForTenant = [&](char* buf, size_t bufLen, uint64_t id, uint32_t tenantId) {
+        OrderRequest req;
+        req.wrapAndApplyHeader(buf, 0, bufLen);
+        req.orderId(id).clientOrderId(id).symbolId(1)
+           .side(Side::Value::Buy).price(5000000000000LL).quantity(100000000ULL)
+           .orderType(OrderType::Limit).timeInForce(TimeInForce::GTC)
+           .venue(Venue::Binance).timestamp(1000000000ULL).tenantId(tenantId);
+    };
+
+    // Warm up across 4 tenants
+    for (int i = 0; i < 1000; ++i) {
+        char buf[256];
+        uint32_t tenantId = static_cast<uint32_t>((i % 4) + 1);
+        makeOrderForTenant(buf, sizeof(buf), i, tenantId);
+        MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
+        OrderRequest decoded;
+        decoded.wrapForDecode(buf, MessageHeader::encodedLength(),
+                              hdr.blockLength(), hdr.version(), sizeof(buf));
+        engine.validate(decoded);
+    }
+
+    constexpr int ITERATIONS = 100000;
+    for (int i = 0; i < ITERATIONS; ++i) {
+        char buf[256];
+        uint32_t tenantId = static_cast<uint32_t>((i % 4) + 1);
+        makeOrderForTenant(buf, sizeof(buf), i, tenantId);
+        MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
+        OrderRequest decoded;
+        decoded.wrapForDecode(buf, MessageHeader::encodedLength(),
+                              hdr.blockLength(), hdr.version(), sizeof(buf));
+
+        auto start = LatencyBench::now();
+        auto result = engine.validate(decoded);
+        auto end = LatencyBench::now();
+
+        bench.record(end - start);
+        (void)result;
+    }
+
+    auto stats = bench.compute();
+    std::cout << bench.report("MultiTenantRiskGate (4 tenants)") << std::endl;
+
+    EXPECT_LT(stats.p99, 5000u)
+        << "Multi-tenant risk gate p99 exceeded 5us target: " << stats.p99 << " ns";
 }
 
 // --- Order Book Update Latency Regression ---

@@ -68,6 +68,7 @@ export function Pagination({
         <Button
           variant="outline"
           size="icon-sm"
+          aria-label="Previous page"
           disabled={currentPage <= 1}
           onClick={() => onPageChange(Math.max(0, offset - limit))}
         >
@@ -79,6 +80,7 @@ export function Pagination({
         <Button
           variant="outline"
           size="icon-sm"
+          aria-label="Next page"
           disabled={currentPage >= totalPages}
           onClick={() => onPageChange(offset + limit)}
         >

@@ -40,6 +40,7 @@ public:
         InsufficientFunds = static_cast<std::uint8_t>(6),
         InvalidSymbol = static_cast<std::uint8_t>(7),
         ExchangeReject = static_cast<std::uint8_t>(8),
+        InvalidTenant = static_cast<std::uint8_t>(9),
         NULL_VALUE = static_cast<std::uint8_t>(255)
     };
 
@@ -56,6 +57,7 @@ public:
             case static_cast<std::uint8_t>(6): return InsufficientFunds;
             case static_cast<std::uint8_t>(7): return InvalidSymbol;
             case static_cast<std::uint8_t>(8): return ExchangeReject;
+            case static_cast<std::uint8_t>(9): return InvalidTenant;
             case static_cast<std::uint8_t>(255): return NULL_VALUE;
         }
 
@@ -75,6 +77,7 @@ public:
             case InsufficientFunds: return "InsufficientFunds";
             case InvalidSymbol: return "InvalidSymbol";
             case ExchangeReject: return "ExchangeReject";
+            case InvalidTenant: return "InvalidTenant";
             case NULL_VALUE: return "NULL_VALUE";
         }
 

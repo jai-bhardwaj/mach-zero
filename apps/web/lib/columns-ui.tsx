@@ -4,12 +4,12 @@ import { type ColumnDef } from "@tanstack/react-table";
 import type { Trade, Order, RiskEvent, SymbolState, User } from "@/types";
 import {
   getSymbolName,
-  getVenueName,
   getSideName,
   formatPrice,
   formatQuantity,
   formatTimestamp,
   formatPnl,
+  formatSnakeLabel,
   pnlColor,
   cn,
 } from "@/lib/utils";
@@ -36,20 +36,34 @@ export function getTradeColumns(): ColumnDef<Trade, unknown>[] {
       enableSorting: true,
     },
     {
+      accessorKey: "account_name",
+      header: "Account",
+      cell: ({ getValue }) => {
+        const name = getValue<string | undefined>();
+        return name
+          ? <span className="text-muted-foreground">{name}</span>
+          : <span className="text-muted-foreground/50">—</span>;
+      },
+      enableSorting: false,
+    },
+    {
       accessorKey: "symbol_id",
-      header: ({ column }) => <DataTableSortHeader column={column} title="Symbol" />,
+      header: ({ column }) => <DataTableSortHeader column={column} title="Market" />,
       cell: ({ getValue }) => (
         <span className="font-semibold">{getSymbolName(getValue<number>())}</span>
       ),
       enableSorting: true,
     },
     {
-      accessorKey: "venue",
-      header: ({ column }) => <DataTableSortHeader column={column} title="Venue" />,
-      cell: ({ getValue }) => (
-        <span className="text-muted-foreground">{getVenueName(getValue<number>())}</span>
-      ),
-      enableSorting: true,
+      accessorKey: "strategy_name",
+      header: "Strategy",
+      cell: ({ getValue }) => {
+        const name = getValue<string | undefined>();
+        return name
+          ? <span>{name}</span>
+          : <span className="text-muted-foreground/50">—</span>;
+      },
+      enableSorting: false,
     },
     {
       accessorKey: "side",
@@ -117,13 +131,32 @@ export function getTradeColumns(): ColumnDef<Trade, unknown>[] {
 
 // ── Order Column Defs ───────────────────────────────────────────────
 
+// Keyed by the LOWERCASE status strings persistence writes to QuestDB
+// (validated/new/partial/filled/cancelled/rejected/pending_*). The previous
+// UPPERCASE keys never matched the lowercase data, so every badge fell back to
+// gray "secondary" and the color semantics were lost.
 const STATUS_VARIANT: Record<string, BadgeVariant> = {
-  NEW: "pending",
-  ACKED: "pending",
-  FILLED: "running",
-  PARTIALLY_FILLED: "warning",
-  REJECTED: "destructive",
-  CANCELLED: "stopped",
+  validated: "pending",
+  new: "pending",
+  acked: "pending",
+  pending_new: "pending",
+  pending_cancel: "pending",
+  partial: "warning",
+  filled: "running",
+  rejected: "destructive",
+  cancelled: "stopped",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  validated: "Validated",
+  new: "New",
+  acked: "Acked",
+  pending_new: "Pending",
+  pending_cancel: "Cancelling",
+  partial: "Partial",
+  filled: "Filled",
+  rejected: "Rejected",
+  cancelled: "Cancelled",
 };
 
 export function getOrderColumns(): ColumnDef<Order, unknown>[] {
@@ -148,11 +181,22 @@ export function getOrderColumns(): ColumnDef<Order, unknown>[] {
     },
     {
       accessorKey: "symbol_id",
-      header: ({ column }) => <DataTableSortHeader column={column} title="Symbol" />,
+      header: ({ column }) => <DataTableSortHeader column={column} title="Market" />,
       cell: ({ getValue }) => (
         <span className="font-semibold">{getSymbolName(getValue<number>())}</span>
       ),
       enableSorting: true,
+    },
+    {
+      accessorKey: "strategy_name",
+      header: "Strategy",
+      cell: ({ getValue }) => {
+        const name = getValue<string | undefined>();
+        return name
+          ? <span>{name}</span>
+          : <span className="text-muted-foreground/50">—</span>;
+      },
+      enableSorting: false,
     },
     {
       accessorKey: "side",
@@ -208,7 +252,7 @@ export function getOrderColumns(): ColumnDef<Order, unknown>[] {
       cell: ({ getValue }) => {
         const status = getValue<string>();
         const variant: BadgeVariant = STATUS_VARIANT[status] ?? "secondary";
-        return <Badge variant={variant}>{status}</Badge>;
+        return <Badge variant={variant}>{STATUS_LABEL[status] ?? status}</Badge>;
       },
       enableSorting: true,
     },
@@ -259,11 +303,36 @@ export function getRiskEventColumns(): ColumnDef<RiskEvent, unknown>[] {
       enableSorting: true,
     },
     {
+      accessorKey: "strategy_name",
+      header: "Strategy",
+      cell: ({ row }) => {
+        const name = row.original.strategy_name;
+        const account = row.original.account_name;
+        return name ? (
+          <div className="flex flex-col leading-tight">
+            <span>{name}</span>
+            {account && (
+              <span className="text-[10px] text-muted-foreground">{account}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-muted-foreground/50">—</span>
+        );
+      },
+      enableSorting: false,
+    },
+    {
       accessorKey: "reason",
       header: ({ column }) => <DataTableSortHeader column={column} title="Reason" />,
-      cell: ({ getValue }) => (
-        <span className="text-negative">{getValue<string>()}</span>
-      ),
+      cell: ({ getValue }) => {
+        // Persistence stores a stable snake_case reject reason (price_band,
+        // position_limit, …); render it as readable Title Case.
+        return (
+          <span className="text-negative">
+            {formatSnakeLabel(getValue<string>())}
+          </span>
+        );
+      },
       enableSorting: true,
     },
     {
@@ -503,6 +572,7 @@ export function getUserColumns(
         <Button
           variant="ghost"
           size="xs"
+          aria-label={`Edit ${row.original.username || row.original.email || "user"}`}
           onClick={(e) => {
             e.stopPropagation();
             onEdit(row.original);

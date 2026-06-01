@@ -207,10 +207,12 @@
   --shadow-popover: var(--shadow-popover);
 }
 
-/* ── Scrollbar — dual mode ─────────────────────────────────── */
+/* ── Scrollbar — dual mode ─────────────────────────────────────────
+   Visible enough that overflowing regions (e.g. the dashboard) clearly read
+   as scrollable rather than cut off. */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -218,20 +220,39 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: oklch(0 0 0 / 12%);
-  border-radius: 3px;
+  background: oklch(0 0 0 / 28%);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0 0 0 / 22%);
+  background: oklch(0 0 0 / 45%);
+  background-clip: padding-box;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: oklch(1 0 0 / 10%);
+  background: oklch(1 0 0 / 25%);
+  background-clip: padding-box;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: oklch(1 0 0 / 20%);
+  background: oklch(1 0 0 / 45%);
+  background-clip: padding-box;
+}
+
+/* Standard scrollbar properties for Firefox ONLY. In Chromium 121+ setting
+   `scrollbar-width` DISABLES the ::-webkit-scrollbar rules above, which collapses
+   them to the OS overlay scrollbar — on macOS that is hidden until you scroll, so
+   an overflowing region (e.g. the dashboard below the fold) looks cut off rather
+   than scrollable. Gating this on browsers that DON'T support ::-webkit-scrollbar
+   keeps the always-visible classic scrollbar in Chrome/Safari while still giving
+   Firefox a thin styled one. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(1 0 0 / 38%) transparent;
+  }
 }
 
 /* ── Animations ───────────────────────────────────────────── */
@@ -255,8 +276,29 @@
   to { opacity: 0; transform: scale(1.02); }
 }
 
+/* Sidebar app<->settings swap: slide the nav in from the side it's heading
+   toward (settings slides in from the right, the app nav slides back in from
+   the left), synced with main's fadeIn so the whole shell transitions together
+   instead of snapping like a reload. */
+@keyframes navSlideInRight {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes navSlideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 main {
   animation: fadeIn 150ms ease-out;
+}
+
+/* Respect users who prefer reduced motion — no slide/fade transitions. */
+@media (prefers-reduced-motion: reduce) {
+  main,
+  [class*="navSlideIn"] {
+    animation: none !important;
+  }
 }
 
 /* ── Base styles ───────────────────────────────────────────── */

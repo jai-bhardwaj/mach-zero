@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { StrategyConfig } from "@/types";
+import { paramToInput, paramToStored, paramLabel } from "@/lib/strategy-params";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,9 +29,11 @@ interface Props {
 }
 
 export function StrategyConfigForm({ strategy, onSave, onClose }: Props) {
+  // Edit params in human units (e.g. 1.0, 0.01); convert to the engine's
+  // fixed-point convention on save. See lib/strategy-params.
   const [params, setParams] = useState<Record<string, string>>(
     Object.fromEntries(
-      Object.entries(strategy.params).map(([k, v]) => [k, String(v)])
+      Object.entries(strategy.params).map(([k, v]) => [k, paramToInput(k, v)])
     )
   );
   const [maxPositionLimit, setMaxPositionLimit] = useState(
@@ -49,8 +52,7 @@ export function StrategyConfigForm({ strategy, onSave, onClose }: Props) {
   const handleSave = () => {
     const parsed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(params)) {
-      const num = Number(value);
-      parsed[key] = isNaN(num) ? value : num;
+      parsed[key] = paramToStored(key, value);
     }
     onSave(strategy.id, {
       params: parsed,
@@ -81,7 +83,7 @@ export function StrategyConfigForm({ strategy, onSave, onClose }: Props) {
             <div className="space-y-3">
               {Object.entries(params).map(([key, value]) => (
                 <div key={key}>
-                  <Label className="text-xs">{key}</Label>
+                  <Label className="text-xs">{paramLabel(key)}</Label>
                   <Input
                     type="text"
                     value={value}

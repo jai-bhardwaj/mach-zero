@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
                    package="mach_zero.market_data"
-                   id="1"
-                   version="2"
-                   semanticVersion="2.0"
-                   description="Unified Internal Market Data Schema"
+                   id="2"
+                   version="3"
+                   semanticVersion="3.0"
+                   description="Unified Internal Market Data Schema (tenant-aware)"
                    byteOrder="littleEndian">
     <types>
         <composite name="messageHeader" description="Standard SBE Header">
@@ -62,6 +62,7 @@
             <validValue name="InsufficientFunds">6</validValue>
             <validValue name="InvalidSymbol">7</validValue>
             <validValue name="ExchangeReject">8</validValue>
+            <validValue name="InvalidTenant">9</validValue>
         </enum>
 
         <enum name="RiskCommandType" encodingType="uint8" description="Risk command type">
@@ -122,6 +123,8 @@
         <field name="timeInForce"    id="8"  type="TimeInForce"/>
         <field name="venue"          id="9"  type="Venue"/>
         <field name="timestamp"      id="10" type="Timestamp"/>
+        <field name="tenantId"       id="11" type="uint32"/>
+        <field name="strategyId"     id="12" type="uint64"/>
     </sbe:message>
 
     <sbe:message name="OrderAck" id="11" description="Order Acknowledgement">
@@ -134,6 +137,9 @@
         <field name="exchangeOrderId"  id="7"  type="uint64"/>
         <field name="venue"            id="8"  type="Venue"/>
         <field name="timestamp"        id="9"  type="Timestamp"/>
+        <field name="tenantId"         id="10" type="uint32"/>
+        <field name="side"             id="11" type="Side"/>
+        <field name="strategyId"       id="12" type="uint64"/>
     </sbe:message>
 
     <sbe:message name="OrderReject" id="12" description="Order Rejection">
@@ -142,6 +148,9 @@
         <field name="rejectReason"   id="3" type="RejectReason"/>
         <field name="venue"          id="4" type="Venue"/>
         <field name="timestamp"      id="5" type="Timestamp"/>
+        <field name="tenantId"       id="6" type="uint32"/>
+        <field name="symbolId"       id="7" type="uint64"/>
+        <field name="strategyId"     id="8" type="uint64"/>
     </sbe:message>
 
     <sbe:message name="CancelRequest" id="13" description="Order Cancel Request">
@@ -150,6 +159,7 @@
         <field name="symbolId"       id="3" type="uint64"/>
         <field name="venue"          id="4" type="Venue"/>
         <field name="timestamp"      id="5" type="Timestamp"/>
+        <field name="tenantId"       id="6" type="uint32"/>
     </sbe:message>
 
     <!-- ========== System Messages ========== -->
@@ -163,6 +173,7 @@
     <sbe:message name="RiskCommand" id="20" description="Risk Control Command">
         <field name="commandType" id="1" type="RiskCommandType"/>
         <field name="timestamp"   id="2" type="Timestamp"/>
+        <field name="tenantId"    id="3" type="uint32"/>
     </sbe:message>
 
     <sbe:message name="SquareOffCommand" id="21" description="Square Off Position(s)">
@@ -170,5 +181,6 @@
         <field name="scope"     id="2" type="SquareOffScope"/>
         <field name="venue"     id="3" type="Venue"/>
         <field name="timestamp" id="4" type="Timestamp"/>
+        <field name="tenantId"  id="5" type="uint32"/>
     </sbe:message>
 </sbe:messageSchema>

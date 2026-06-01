@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
+import { track } from "@/lib/analytics";
 
 // POST /api/onboarding/complete — mark onboarding as done
 export async function POST() {
@@ -11,6 +12,13 @@ export async function POST() {
     await prisma.user.update({
       where: { id: session.userId },
       data: { onboardingComplete: true },
+    });
+
+    track({
+      userId: session.userId,
+      event: "onboarding_completed",
+      tenantId: session.tenantId,
+      engineId: session.engineId,
     });
 
     return NextResponse.json({ success: true });

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { StrategyConfig, StrategyStatus, SymbolState, TradingMode } from "@/types";
 import { STATUS_TRANSITIONS } from "@/types";
 import { formatPrice, formatPnl, formatQuantity, pnlColor, cn } from "@/lib/utils";
+import { formatParamDisplay, paramLabel } from "@/lib/strategy-params";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,8 +135,8 @@ export function StrategyCard({
         {strategy.allocation && (
           <div>
             <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>Capital: {formatPrice(strategy.allocation.allocatedAmt)}</span>
-              <span>Margin: {formatPrice(strategy.allocation.usedMargin)}</span>
+              <span>Capital: <span className="font-mono tabular-nums">{formatPrice(strategy.allocation.allocatedAmt)}</span></span>
+              <span>Margin: <span className="font-mono tabular-nums">{formatPrice(strategy.allocation.usedMargin)}</span></span>
             </div>
             <div className="mt-1 h-1 w-full rounded-full bg-muted">
               <div
@@ -164,8 +165,8 @@ export function StrategyCard({
               key={key}
               className="flex justify-between px-1 py-0.5"
             >
-              <span className="text-muted-foreground">{key}</span>
-              <span className="font-mono tabular-nums">{String(value)}</span>
+              <span className="text-muted-foreground">{paramLabel(key)}</span>
+              <span className="font-mono tabular-nums">{formatParamDisplay(key, value)}</span>
             </div>
           ))}
         </div>

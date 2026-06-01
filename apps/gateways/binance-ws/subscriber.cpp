@@ -5,6 +5,7 @@
 #include <mach_zero_market_data/Side.h>
 #include <mach_zero_market_data/Venue.h>
 #include <common/ipc/ChannelConfig.h>
+#include <common/ipc/SchemaValidator.h>
 
 #include <iostream>
 #include <thread>
@@ -23,6 +24,7 @@ fragment_handler_t marketDataHandler() {
     return [](AtomicBuffer& buffer, util::index_t offset, util::index_t length, Header& /*header*/) {
         char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
         MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+        if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
         switch (hdr.templateId()) {
             case Trade::sbeTemplateId(): {

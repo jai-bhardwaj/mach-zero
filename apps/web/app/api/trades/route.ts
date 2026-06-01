@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryPaginated, buildOrderBy, QuestDBUnavailableError } from "@/lib/questdb";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
-import { validateTradingMode, validateTimestamp } from "@/lib/questdb-sanitize";
+import { validateTimestamp, validateTradingMode } from "@/lib/questdb-sanitize";
 import { TRADES_SORTABLE_COLUMNS } from "@/lib/columns";
+import { attachStrategyInfo, strategyEngineIdsByMode } from "@/lib/enrich-executions";
 import type { Trade } from "@/types";
 
 export async function GET(request: NextRequest) {
@@ -20,10 +21,14 @@ export async function GET(request: NextRequest) {
 
   const conditions: string[] = [];
 
-  // Tenant isolation: only show trades belonging to this tenant
-  if (session.tenantId) {
-    conditions.push(`tenant_id = '${session.tenantId.replace(/'/g, "")}'`);
+  // The Trades tab shows THIS tenant's executions — fills our platform made in
+  // their accounts, attributed to a strategy. The persistence service writes
+  // each fill under the tenant's engineId (the public market feed is a
+  // separate tenant_id='0' that users never see). Fail closed if no engineId.
+  if (typeof session.engineId !== "number") {
+    return NextResponse.json({ data: [], total: 0, offset: 0, limit });
   }
+  conditions.push(`tenant_id = '${session.engineId}'`);
 
   const parsedSymbolId = symbolId ? Number(symbolId) : NaN;
   if (Number.isFinite(parsedSymbolId)) conditions.push(`symbol_id = ${parsedSymbolId}`);
@@ -31,12 +36,21 @@ export async function GET(request: NextRequest) {
   if (Number.isFinite(parsedSide)) conditions.push(`side = ${parsedSide}`);
   const validStart = start ? validateTimestamp(start) : null;
   if (validStart) conditions.push(`timestamp >= '${validStart}'`);
-  const tradingMode = params.get("trading_mode");
-  const validMode = tradingMode ? validateTradingMode(tradingMode) : null;
-  if (validMode) conditions.push(`trading_mode = '${validMode}'`);
   const end = params.get("end");
   const validEnd = end ? validateTimestamp(end) : null;
   if (validEnd) conditions.push(`timestamp <= '${validEnd}'`);
+
+  // trading_mode isn't on the QuestDB row — it comes from the strategy. Resolve
+  // the requested mode to this tenant's matching strategy ids and filter on
+  // strategy_id. No matching strategies -> no executions.
+  const validMode = validateTradingMode(params.get("trading_mode") ?? "");
+  if (validMode) {
+    const ids = await strategyEngineIdsByMode(session.tenantId, validMode as "MOCK" | "LIVE");
+    if (ids.length === 0) {
+      return NextResponse.json({ data: [], total: 0, offset, limit });
+    }
+    conditions.push(`strategy_id IN (${ids.map((i) => `'${i}'`).join(",")})`);
+  }
 
   const sort = params.get("sort");
   const dir = params.get("dir");
@@ -50,6 +64,10 @@ export async function GET(request: NextRequest) {
       offset,
       orderBy
     );
+
+    // Attribute each execution to its strategy/account/mode (tenant-scoped).
+    result.data = await attachStrategyInfo(result.data, session.tenantId);
+
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof QuestDBUnavailableError) {

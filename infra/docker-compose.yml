@@ -54,6 +54,9 @@ services:
     ipc: host
     volumes:
       - /dev/shm:/dev/shm
+      - ./tenant_limits.json:/var/run/mach-zero/tenant_limits.json:ro
+    environment:
+      - TENANT_LIMITS_FILE=/var/run/mach-zero/tenant_limits.json
     depends_on:
       - gateway
       - aeron-driver
@@ -69,6 +72,9 @@ services:
       - "8080:8080"   # HTTP control plane (kill-switch)
     volumes:
       - /dev/shm:/dev/shm
+      - ./tenant_limits.json:/var/run/mach-zero/tenant_limits.json:ro
+    environment:
+      - TENANT_LIMITS_FILE=/var/run/mach-zero/tenant_limits.json
     depends_on:
       - engine
       - aeron-driver

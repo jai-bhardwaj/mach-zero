@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const days = validateDays(Number(params.get("days") ?? "7"));
-  const tid = session.tenantId?.replace(/'/g, "") ?? "";
-  const tenantFilter = tid ? `AND tenant_id = '${tid}'` : "";
+  if (typeof session.engineId !== "number") {
+    return NextResponse.json({ status: [], rejects: [], orderStats: {} });
+  }
+  const tenantFilter = `AND tenant_id = '${session.engineId}'`;
 
   try {
     const [statusResult, rejectResult, orderStatsResult] = await Promise.all([
@@ -38,10 +40,12 @@ export async function GET(request: NextRequest) {
     const statusBreakdown = rowsToObjects<{ status: string; count: number }>(statusResult);
     const orderStats = rowsToObjects<{ total_orders: number }>(orderStatsResult)[0];
 
-    // Compute fill rate from status breakdown
-    const filledCount = statusBreakdown.find((s) => s.status === "FILLED")?.count ?? 0;
-    const partialFilledCount = statusBreakdown.find((s) => s.status === "PARTIALLY_FILLED")?.count ?? 0;
-    const ackedCount = statusBreakdown.find((s) => s.status === "ACKED")?.count ?? 0;
+    // Compute fill rate from status breakdown. Statuses are the LOWERCASE
+    // strings persistence writes to QuestDB (filled/partial/new/validated) —
+    // the previous UPPERCASE "FILLED"/"PARTIALLY_FILLED"/"ACKED" matched nothing,
+    // so the fill rate always reported 0% even while orders were filling.
+    const filledCount = statusBreakdown.find((s) => s.status === "filled")?.count ?? 0;
+    const partialFilledCount = statusBreakdown.find((s) => s.status === "partial")?.count ?? 0;
     const totalOrders = orderStats?.total_orders ?? 0;
 
     return NextResponse.json({
@@ -50,7 +54,6 @@ export async function GET(request: NextRequest) {
       orderStats: {
         totalOrders,
         filledOrders: filledCount + partialFilledCount,
-        ackedOrders: ackedCount,
         fillRate: totalOrders > 0 ? Math.round(((filledCount + partialFilledCount) / totalOrders) * 100) : 0,
       },
     });

@@ -3,9 +3,11 @@
 #include "Strategy.h"
 #include <matching/OrderBook.h>
 #include <common/ipc/ChannelConfig.h>
+#include <common/ipc/SchemaValidator.h>
 #include <mach_zero_market_data/Trade.h>
 #include <mach_zero_market_data/Quote.h>
 #include <mach_zero_market_data/OrderAck.h>
+#include <mach_zero_market_data/OrderReject.h>
 #include <mach_zero_market_data/OrderRequest.h>
 #include <mach_zero_market_data/MessageHeader.h>
 
@@ -33,9 +35,22 @@ public:
         strategies_.push_back(std::move(strategy));
     }
 
+    // Atomically replace the active strategy set (used for hot-reload of
+    // STRATEGIES_FILE). Called on the engine's single processing thread between
+    // polls, so there is no concurrency hazard with processMarketData/processAck.
+    // The caller is responsible for only invoking this with a successfully
+    // parsed set — on a failed reload it should keep the existing strategies.
+    void replaceStrategies(std::vector<std::shared_ptr<Strategy>> next) {
+        strategies_.clear();
+        for (auto& s : next) addStrategy(std::move(s));
+    }
+
+    size_t strategyCount() const { return strategies_.size(); }
+
     // Process a raw SBE message from the market data stream
     void processMarketData(const char* data, size_t length) {
         MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
+        if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
         switch (hdr.templateId()) {
             case Trade::sbeTemplateId(): {
@@ -62,14 +77,27 @@ public:
         }
     }
 
-    // Process a raw SBE message from the ack stream
+    // Process a raw SBE message from the ack stream. Routes to strategies
+    // matching the ack's tenantId — defense in depth against clientOrderId
+    // collisions across tenants.
     void processAck(const char* data, size_t length) {
         MessageHeader hdr(const_cast<char*>(data), length, MessageHeader::sbeSchemaVersion());
+        if (!mach_zero::ipc::isValidSchema(hdr)) return;
         if (hdr.templateId() == OrderAck::sbeTemplateId()) {
             OrderAck ack;
             ack.wrapForDecode(const_cast<char*>(data), MessageHeader::encodedLength(),
                               hdr.blockLength(), hdr.version(), length);
-            for (auto& s : strategies_) s->onOrderAck(ack);
+            for (auto& s : strategies_) {
+                if (s->tenantId() == ack.tenantId()) s->onOrderAck(ack);
+            }
+        } else if (hdr.templateId() == OrderReject::sbeTemplateId()) {
+            // OrderReject handling is symmetric: route to the tenant's
+            // strategies so they can unblock retries or alert. Strategies
+            // don't currently override onOrderReject — stub via onOrderAck
+            // with a rejected status would need schema changes, so we
+            // simply leave rejects unhandled beyond logging at the
+            // consumer level. Filter here to prevent spurious fanout.
+            (void)length;
         }
     }
 

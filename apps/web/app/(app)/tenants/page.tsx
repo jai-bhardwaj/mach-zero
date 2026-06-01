@@ -3,6 +3,8 @@ import { requirePageAuth } from "@/lib/require-auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+export const metadata = { title: "Tenants | Mach-Zero" };
+
 export default async function TenantsPage() {
   const session = await requirePageAuth();
 

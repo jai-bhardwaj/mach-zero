@@ -13,11 +13,18 @@ enum TradingMode {
   LIVE
 }
 
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
 model Tenant {
   id            String      @id @default(uuid())
   name          String      @unique
   slug          String      @unique
   active        Boolean     @default(true)
+  plan          Plan        @default(FREE)
   config        Json?
   createdAt     DateTime    @default(now())
 
@@ -31,6 +38,43 @@ model Tenant {
   invites       WorkspaceInvite[]
   notificationChannels NotificationChannel[]
   alerts               Alert[]
+  mapping              TenantMapping?
+  billing              Billing?
+}
+
+// Stripe customer + subscription state. One per tenant. Created lazily
+// at first checkout attempt; the webhook keeps it in sync.
+model Billing {
+  id                   String    @id @default(uuid())
+  tenantId             String    @unique
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String    @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  // Mirror of Stripe's subscription.status: active, trialing, past_due,
+  // canceled, unpaid, incomplete, incomplete_expired, paused.
+  status               String    @default("incomplete")
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([stripeCustomerId])
+}
+
+// Maps Tenant.id (UUID) to an engine-internal uint32 engineId, which is
+// the form the C++ trading engine uses on the wire (SBE OrderRequest.tenantId
+// etc.). Autoincrement sequence — never reused, never collides. engineId=0
+// is reserved for the global admin kill switch and is never assigned.
+//
+// Seed/migration must ensure sequence starts at >= 1 (Postgres default is 1).
+// MAX_TENANTS in the engine is 1024; exceeding that requires a code change
+// and redeploy.
+model TenantMapping {
+  engineId  Int      @id @default(autoincrement())
+  tenantId  String   @unique
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 model User {
@@ -91,6 +135,10 @@ enum StrategyStatus {
 
 model StrategyConfig {
   id               String          @id @default(uuid())
+  // Stable integer id carried on the SBE hot path (OrderRequest.strategyId) so
+  // QuestDB executions join back to the strategy/account/mode in the web.
+  // Mirrors TenantMapping.engineId; the engine config export uses it.
+  engineId         Int             @unique @default(autoincrement())
   tenantId         String
   tenant           Tenant          @relation(fields: [tenantId], references: [id])
   accountId        String?

@@ -35,6 +35,9 @@ interface PerformanceData {
   dailyPnl: DailyPnL[];
   summary: PerformanceSummary | null;
   sideBreakdown: SideBreakdown[];
+  // True when the period had more fills than the realized-P&L fold cap, so the
+  // P&L reflects only the earliest fills in the window.
+  capped?: boolean;
 }
 
 // --- Execution types ---
@@ -52,7 +55,6 @@ interface RejectReason {
 interface OrderStats {
   totalOrders: number;
   filledOrders: number;
-  validatedOrders: number;
   fillRate: number;
 }
 

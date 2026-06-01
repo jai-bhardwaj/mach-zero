@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
 
 const KILL_SWITCH_URL = process.env.KILL_SWITCH_URL;
+const SEND_ENGINE_ID = process.env.ENGINE_SCHEMA_V3 === "true";
 
 // Venue name → SBE enum value
 const VENUE_MAP: Record<string, number> = {
@@ -24,11 +25,15 @@ export async function POST(request: NextRequest) {
       return await squareOffStrategy(
         strategyId,
         session.tenantId,
-        session.role
+        session.role,
+        session.engineId,
+        session.userId
       );
     } else if (scope === "tenant") {
       return await squareOffTenant(
         session.tenantId,
+        session.engineId,
+        session.userId,
         activateKillSwitch !== false
       );
     }
@@ -48,7 +53,9 @@ export async function POST(request: NextRequest) {
 async function squareOffStrategy(
   strategyId: string,
   tenantId: string,
-  role: string
+  role: string,
+  engineId: number | undefined,
+  userId: string
 ) {
   if (!strategyId) {
     return NextResponse.json(
@@ -82,13 +89,17 @@ async function squareOffStrategy(
   if (KILL_SWITCH_URL) {
     try {
       const venueNum = VENUE_MAP[strategy.venue] ?? 1;
+      const reqBody: Record<string, unknown> = {
+        symbolId: strategy.symbolId,
+        venue: venueNum,
+      };
+      if (SEND_ENGINE_ID && typeof engineId === "number") {
+        reqBody.tenantId = engineId;
+      }
       const res = await fetch(`${KILL_SWITCH_URL}/square-off`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbolId: strategy.symbolId,
-          venue: venueNum,
-        }),
+        body: JSON.stringify(reqBody),
       });
       cppResult = await res.json();
     } catch {
@@ -102,6 +113,18 @@ async function squareOffStrategy(
     data: { status: "PAUSED" },
   });
 
+  // Audit log (best-effort; must not block the square-off path)
+  prisma.auditLog
+    .create({
+      data: {
+        tenantId: strategy.tenantId,
+        userId,
+        action: "SQUARE_OFF_STRATEGY",
+        details: { strategyId, engineId },
+      },
+    })
+    .catch(() => {});
+
   return NextResponse.json({
     success: true,
     scope: "strategy",
@@ -114,7 +137,12 @@ async function squareOffStrategy(
   });
 }
 
-async function squareOffTenant(tenantId: string, activateKillSwitch: boolean) {
+async function squareOffTenant(
+  tenantId: string,
+  engineId: number | undefined,
+  userId: string,
+  activateKillSwitch: boolean
+) {
   // Send square-off ALL to C++ risk monitor
   let cppResult = null;
   if (KILL_SWITCH_URL) {
@@ -126,13 +154,17 @@ async function squareOffTenant(tenantId: string, activateKillSwitch: boolean) {
       });
       const venues = [...new Set(activeStrategies.map((s) => VENUE_MAP[s.venue] ?? 1))];
       const results = await Promise.all(
-        venues.map((venue) =>
-          fetch(`${KILL_SWITCH_URL}/square-off`, {
+        venues.map((venue) => {
+          const reqBody: Record<string, unknown> = { all: true, venue };
+          if (SEND_ENGINE_ID && typeof engineId === "number") {
+            reqBody.tenantId = engineId;
+          }
+          return fetch(`${KILL_SWITCH_URL}/square-off`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ all: true, venue }),
-          }).then((r) => r.json())
-        )
+            body: JSON.stringify(reqBody),
+          }).then((r) => r.json());
+        })
       );
       cppResult = {
         symbolsSquaredOff: results.reduce((sum: number, r: Record<string, unknown>) => sum + (Number(r.symbolsSquaredOff) || 0), 0),
@@ -145,8 +177,14 @@ async function squareOffTenant(tenantId: string, activateKillSwitch: boolean) {
     // Activate kill switch
     if (activateKillSwitch) {
       try {
+        const killBody: Record<string, unknown> = {};
+        if (SEND_ENGINE_ID && typeof engineId === "number") {
+          killBody.tenantId = engineId;
+        }
         await fetch(`${KILL_SWITCH_URL}/kill-switch/on`, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(killBody),
         });
       } catch {
         // Best-effort
@@ -162,6 +200,22 @@ async function squareOffTenant(tenantId: string, activateKillSwitch: boolean) {
     },
     data: { status: "PAUSED" },
   });
+
+  // Audit log (best-effort)
+  prisma.auditLog
+    .create({
+      data: {
+        tenantId,
+        userId,
+        action: "SQUARE_OFF_TENANT",
+        details: {
+          engineId,
+          killSwitchActivated: activateKillSwitch,
+          strategiesPaused: pauseResult.count,
+        },
+      },
+    })
+    .catch(() => {});
 
   return NextResponse.json({
     success: true,

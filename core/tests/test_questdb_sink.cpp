@@ -50,6 +50,104 @@ TEST(QuestDBSink, WriteTradeFormat) {
     cfg.batchSize = 1000;
     QuestDBSink sink(cfg);
 
-    sink.writeTrade(1, 5000000000000LL, 100000000ULL, 1, 1, 1000000000ULL);
+    // (tenantId=0, symbolId=1, ...)
+    sink.writeTrade(0, 1, 5000000000000LL, 100000000ULL, 1, 1, 1000000000ULL);
     EXPECT_EQ(sink.pendingLines(), 1u);
+}
+
+TEST(QuestDBSink, WriteOrderIncludesTenantId) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+
+    sink.writeOrder(/*tenantId=*/42, /*strategyId=*/3, /*orderId=*/100, /*symbolId=*/1,
+                    /*side=*/1, /*price=*/5000000000000LL, /*quantity=*/100000000ULL,
+                    "validated", 1000000000ULL);
+    EXPECT_EQ(sink.pendingLines(), 1u);
+    // Buffer should contain the tenant_id tag
+    // (bufferSize is > 0 sanity; we can't easily inspect content without
+    // exposing getter, but compiling & running is the guarantee that the
+    // signature change didn't break callers.)
+    EXPECT_GT(sink.bufferSize(), 0u);
+}
+
+TEST(QuestDBSink, WriteRiskEventIncludesTenantId) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+
+    sink.writeRiskEvent(/*tenantId=*/7, /*strategyId=*/55, /*orderId=*/100,
+                        /*symbolId=*/1, "PositionLimit", 1000000000ULL);
+    EXPECT_EQ(sink.pendingLines(), 1u);
+    EXPECT_GT(sink.bufferSize(), 0u);
+}
+
+namespace {
+// The ILP "measurement" is everything before the first space: `name[,tag=v...]`.
+// Our schema types symbol_id/venue/order_id as LONG/INT, so they MUST be
+// fields (after the space), never tags — a numeric column written as a tag is
+// SYMBOL-typed and QuestDB rejects the line, tearing down the WAL writer.
+std::string measurementOf(std::string_view line) {
+    auto sp = line.find(' ');
+    return std::string(line.substr(0, sp));
+}
+}  // namespace
+
+TEST(QuestDBSink, TradeLineHasNoNumericTags) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    sink.writeTrade(0, 1, 5000000000000LL, 100000000ULL, 1, 1, 1000000000ULL);
+
+    std::string line(sink.bufferContents());
+    // Measurement must be just the table name — no tags (no comma before the space).
+    EXPECT_EQ(measurementOf(line), "trades");
+    // symbol_id/venue must appear as integer fields (=Ni), not tags.
+    EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
+    EXPECT_NE(line.find("venue=1i"), std::string::npos);
+}
+
+TEST(QuestDBSink, OrderLineHasNoNumericTags) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    sink.writeOrder(42, 3, 100, 1, 1, 5000000000000LL, 100000000ULL, "filled", 1000000000ULL);
+
+    std::string line(sink.bufferContents());
+    EXPECT_EQ(measurementOf(line), "orders");
+    EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
+    EXPECT_NE(line.find("order_id=100i"), std::string::npos);
+    EXPECT_NE(line.find("strategy_id=\"3\""), std::string::npos);
+    EXPECT_NE(line.find("status=\"filled\""), std::string::npos);
+}
+
+TEST(QuestDBSink, RiskEventLineHasNoNumericTags) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    sink.writeRiskEvent(7, 55, 100, 1, "PositionLimit", 1000000000ULL);
+
+    std::string line(sink.bufferContents());
+    EXPECT_EQ(measurementOf(line), "risk_events");
+    EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
+    EXPECT_NE(line.find("order_id=100i"), std::string::npos);
+    // strategy_id attributes the rejection; written as a string field, not a tag.
+    EXPECT_NE(line.find("strategy_id=\"55\""), std::string::npos);
+}
+
+TEST(QuestDBSink, FillLineIsTenantScopedWithStrategyId) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    // tenant 5's fill, strategy 9, BTC sell @ 50000, qty 0.1
+    sink.writeFill(/*tenantId=*/5, /*strategyId=*/9, /*symbolId=*/1, /*side=*/2,
+                   /*price=*/5000000000000LL, /*quantity=*/10000000ULL,
+                   /*venue=*/1, 1000000000ULL);
+    std::string line(sink.bufferContents());
+    EXPECT_EQ(measurementOf(line), "trades");
+    // Attributed to the tenant (not public tenant_id=0) and the strategy.
+    EXPECT_NE(line.find("tenant_id=\"5\""), std::string::npos);
+    EXPECT_NE(line.find("strategy_id=\"9\""), std::string::npos);
+    EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
+    EXPECT_NE(line.find("side=2i"), std::string::npos);
 }

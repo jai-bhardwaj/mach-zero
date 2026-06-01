@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <chrono>
 #include <cstdint>
@@ -80,13 +81,22 @@ public:
 
     bool isConnected() const { return connected_; }
 
-    // Write a trade record in ILP format
-    void writeTrade(uint64_t symbolId, int64_t price, uint64_t quantity,
-                    uint8_t side, uint8_t venue, uint64_t timestampNanos) {
-        buffer_.append("trades");
-        appendTag("symbol_id", symbolId);
-        appendTag("venue", venue);
-        buffer_.append(" price=");
+    // Write a trade record in ILP format.
+    // tenantId is stringified and written to the tenant_id STRING column.
+    // Use tenantId=0 for public market data (no tenant ownership).
+    void writeTrade(uint32_t tenantId, uint64_t symbolId, int64_t price,
+                    uint64_t quantity, uint8_t side, uint8_t venue,
+                    uint64_t timestampNanos) {
+        // symbol_id/venue/side are LONG/INT columns, so they must be ILP
+        // integer *fields* (=Ni), not tags — tags are SYMBOL-typed and QuestDB
+        // rejects the whole line (and tears down the writer) on the type cast.
+        buffer_.append("trades tenant_id=\"");
+        buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",symbol_id=");
+        buffer_.append(std::to_string(symbolId));
+        buffer_.append("i,venue=");
+        buffer_.append(std::to_string(venue));
+        buffer_.append("i,price=");
         appendFixedPoint(price);
         buffer_.append(",quantity=");
         appendFixedPoint(static_cast<int64_t>(quantity));
@@ -98,14 +108,47 @@ public:
         maybeFlush();
     }
 
-    // Write an order event in ILP format
-    void writeOrder(uint64_t orderId, uint64_t symbolId, uint8_t side,
-                    int64_t price, uint64_t quantity, const char* status,
+    // Write a tenant execution (fill) to the trades table, attributed to the
+    // tenant (engineId) and the originating strategy. strategy_id is a STRING
+    // column, so it's a quoted field; the web joins it to Postgres for the
+    // strategy/account names and trading mode.
+    void writeFill(uint32_t tenantId, uint64_t strategyId, uint64_t symbolId,
+                   uint8_t side, int64_t price, uint64_t quantity, uint8_t venue,
+                   uint64_t timestampNanos) {
+        buffer_.append("trades tenant_id=\"");
+        buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",strategy_id=\"");
+        buffer_.append(std::to_string(strategyId));
+        buffer_.append("\",symbol_id=");
+        buffer_.append(std::to_string(symbolId));
+        buffer_.append("i,venue=");
+        buffer_.append(std::to_string(venue));
+        buffer_.append("i,price=");
+        appendFixedPoint(price);
+        buffer_.append(",quantity=");
+        appendFixedPoint(static_cast<int64_t>(quantity));
+        buffer_.append(",side=");
+        buffer_.append(std::to_string(side));
+        buffer_.append("i ");
+        buffer_.append(std::to_string(timestampNanos));
+        buffer_.push_back('\n');
+        maybeFlush();
+    }
+
+    // Write an order event in ILP format.
+    void writeOrder(uint32_t tenantId, uint64_t strategyId, uint64_t orderId,
+                    uint64_t symbolId, uint8_t side, int64_t price,
+                    uint64_t quantity, const char* status,
                     uint64_t timestampNanos) {
-        buffer_.append("orders");
-        appendTag("symbol_id", symbolId);
-        appendTag("order_id", orderId);
-        buffer_.append(" side=");
+        buffer_.append("orders tenant_id=\"");
+        buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",strategy_id=\"");
+        buffer_.append(std::to_string(strategyId));
+        buffer_.append("\",symbol_id=");
+        buffer_.append(std::to_string(symbolId));
+        buffer_.append("i,order_id=");
+        buffer_.append(std::to_string(orderId));
+        buffer_.append("i,side=");
         buffer_.append(std::to_string(side));
         buffer_.append("i,price=");
         appendFixedPoint(price);
@@ -119,13 +162,21 @@ public:
         maybeFlush();
     }
 
-    // Write a risk event in ILP format
-    void writeRiskEvent(uint64_t orderId, uint64_t symbolId,
-                        const char* reason, uint64_t timestampNanos) {
-        buffer_.append("risk_events");
-        appendTag("symbol_id", symbolId);
-        appendTag("order_id", orderId);
-        buffer_.append(" reason=\"");
+    // Write a risk event in ILP format. strategyId attributes the rejection to
+    // the originating strategy so the web can join it to the strategy's
+    // name/account/mode (parity with the orders/trades tables).
+    void writeRiskEvent(uint32_t tenantId, uint64_t strategyId, uint64_t orderId,
+                        uint64_t symbolId, const char* reason,
+                        uint64_t timestampNanos) {
+        buffer_.append("risk_events tenant_id=\"");
+        buffer_.append(std::to_string(tenantId));
+        buffer_.append("\",strategy_id=\"");
+        buffer_.append(std::to_string(strategyId));
+        buffer_.append("\",symbol_id=");
+        buffer_.append(std::to_string(symbolId));
+        buffer_.append("i,order_id=");
+        buffer_.append(std::to_string(orderId));
+        buffer_.append("i,reason=\"");
         buffer_.append(reason);
         buffer_.append("\" ");
         buffer_.append(std::to_string(timestampNanos));
@@ -185,6 +236,9 @@ public:
 
     size_t pendingLines() const { return lineCount_; }
     size_t bufferSize() const { return buffer_.size(); }
+
+    // Read-only view of the pending ILP buffer, for tests/diagnostics.
+    std::string_view bufferContents() const { return buffer_; }
 
 private:
     void appendTag(const char* key, uint64_t value) {

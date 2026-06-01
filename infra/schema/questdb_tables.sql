@@ -46,3 +46,14 @@ CREATE TABLE IF NOT EXISTS risk_events (
 -- 3. INSERT INTO trades SELECT 'default', symbol_id, venue, price, quantity, side, strategy_id, trading_mode, timestamp FROM trades_backup;
 -- 4. DROP TABLE trades_backup;
 -- Repeat for orders and risk_events.
+
+-- Post-v3 (SBE tenantId) migration for legacy rows:
+-- Pre-migration rows written by the persistence service have tenant_id NULL
+-- or empty, because the prior code never populated the column. Backfill them
+-- with the reserved sentinel '0' so web read-path filters (WHERE tenant_id
+-- = $engineId) naturally hide legacy data from per-tenant UI queries. A
+-- super-admin tool or separate /api/admin/market-data can expose them.
+-- Run once, post-deploy:
+-- UPDATE trades       SET tenant_id = '0' WHERE tenant_id IS NULL OR tenant_id = '';
+-- UPDATE orders       SET tenant_id = '0' WHERE tenant_id IS NULL OR tenant_id = '';
+-- UPDATE risk_events  SET tenant_id = '0' WHERE tenant_id IS NULL OR tenant_id = '';

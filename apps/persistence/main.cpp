@@ -1,6 +1,7 @@
 #include <transport/QuestDBSink.h>
 #include <common/ipc/AeronSubscriber.h>
 #include <common/ipc/ChannelConfig.h>
+#include <common/ipc/SchemaValidator.h>
 #include <common/logger/Logger.h>
 #include <mach_zero_market_data/MessageHeader.h>
 #include <mach_zero_market_data/Trade.h>
@@ -8,12 +9,15 @@
 #include <mach_zero_market_data/OrderRequest.h>
 #include <mach_zero_market_data/OrderAck.h>
 #include <mach_zero_market_data/OrderReject.h>
+#include <mach_zero_market_data/OrderStatus.h>
+#include <mach_zero_market_data/RejectReason.h>
 
 #include <iostream>
 #include <atomic>
 #include <csignal>
 #include <thread>
 #include <cstdlib>
+#include <cstdint>
 
 using namespace mach_zero::transport;
 using namespace mach_zero::ipc;
@@ -61,6 +65,46 @@ int main() {
     uint64_t tradeCount = 0, orderCount = 0, ackCount = 0;
     uint64_t reconnectCounter = 0;
 
+    // OrderAck now carries side + strategyId directly (SBE), so fills are
+    // attributed straight from the ack — no in-memory orderId correlation that
+    // would lose attribution across a persistence restart.
+
+    // Map the SBE OrderStatus to the lowercase status SYMBOL the web expects,
+    // instead of collapsing every ack to "acked" (which hid fills behind
+    // receipt acks).
+    auto ackStatusString = [](uint8_t raw) -> const char* {
+        switch (raw) {
+            case OrderStatus::Value::New:           return "new";
+            case OrderStatus::Value::PartialFill:   return "partial";
+            case OrderStatus::Value::Filled:        return "filled";
+            case OrderStatus::Value::Cancelled:     return "cancelled";
+            case OrderStatus::Value::Rejected:      return "rejected";
+            case OrderStatus::Value::PendingNew:    return "pending_new";
+            case OrderStatus::Value::PendingCancel: return "pending_cancel";
+            default:                                return "acked";
+        }
+    };
+
+    // Decode the OrderReject.rejectReason enum to a stable snake_case code so the
+    // risk-events table records WHY an order was rejected (PriceBand,
+    // PositionLimit, etc.) instead of a generic "rejected" for every row. The web
+    // formats this code for display.
+    auto rejectReasonString = [](uint8_t raw) -> const char* {
+        switch (raw) {
+            case RejectReason::Value::None:              return "none";
+            case RejectReason::Value::PriceBand:         return "price_band";
+            case RejectReason::Value::PositionLimit:     return "position_limit";
+            case RejectReason::Value::OrderRate:         return "order_rate";
+            case RejectReason::Value::MaxOrderSize:      return "max_order_size";
+            case RejectReason::Value::KillSwitch:        return "kill_switch";
+            case RejectReason::Value::InsufficientFunds: return "insufficient_funds";
+            case RejectReason::Value::InvalidSymbol:     return "invalid_symbol";
+            case RejectReason::Value::ExchangeReject:    return "exchange_reject";
+            case RejectReason::Value::InvalidTenant:     return "invalid_tenant";
+            default:                                     return "rejected";
+        }
+    };
+
     std::cerr << "Persistence service running. Press Ctrl+C to stop." << std::endl;
 
     while (running.load()) {
@@ -79,12 +123,14 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == Trade::sbeTemplateId()) {
                     Trade trade;
                     trade.wrapForDecode(data, MessageHeader::encodedLength(),
                                         hdr.blockLength(), hdr.version(), length);
-                    sink.writeTrade(trade.symbolId(), trade.price(), trade.quantity(),
+                    // Market data is public; tenant_id=0 marks it as such.
+                    sink.writeTrade(0, trade.symbolId(), trade.price(), trade.quantity(),
                                    trade.sideRaw(), trade.venueRaw(), trade.timestamp());
                     ++tradeCount;
                 }
@@ -96,13 +142,15 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == OrderRequest::sbeTemplateId()) {
                     OrderRequest req;
                     req.wrapForDecode(data, MessageHeader::encodedLength(),
                                       hdr.blockLength(), hdr.version(), length);
-                    sink.writeOrder(req.orderId(), req.symbolId(), req.sideRaw(),
-                                   req.price(), req.quantity(), "validated", req.timestamp());
+                    sink.writeOrder(req.tenantId(), req.strategyId(), req.orderId(),
+                                   req.symbolId(), req.sideRaw(), req.price(),
+                                   req.quantity(), "validated", req.timestamp());
                     ++orderCount;
                 }
             }, 50);
@@ -113,19 +161,37 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == OrderAck::sbeTemplateId()) {
                     OrderAck ack;
                     ack.wrapForDecode(data, MessageHeader::encodedLength(),
                                       hdr.blockLength(), hdr.version(), length);
-                    sink.writeOrder(ack.orderId(), ack.symbolId(), 0,
-                                   ack.avgPrice(), ack.filledQuantity(), "acked", ack.timestamp());
+                    uint8_t statusRaw = ack.statusRaw();
+                    // side + strategyId come straight off the ack now.
+                    uint8_t side = ack.sideRaw();
+                    uint64_t strategyId = ack.strategyId();
+                    sink.writeOrder(ack.tenantId(), strategyId, ack.orderId(),
+                                   ack.symbolId(), side, ack.avgPrice(),
+                                   ack.filledQuantity(), ackStatusString(statusRaw),
+                                   ack.timestamp());
+                    // A (partial) fill is one of the tenant's executed trades —
+                    // record it in the trades table, attributed to the strategy.
+                    if (statusRaw == OrderStatus::Value::Filled ||
+                        statusRaw == OrderStatus::Value::PartialFill) {
+                        sink.writeFill(ack.tenantId(), strategyId, ack.symbolId(), side,
+                                       ack.avgPrice(), ack.filledQuantity(),
+                                       ack.venueRaw(), ack.timestamp());
+                    }
                     ++ackCount;
                 } else if (hdr.templateId() == OrderReject::sbeTemplateId()) {
                     OrderReject reject;
                     reject.wrapForDecode(data, MessageHeader::encodedLength(),
                                           hdr.blockLength(), hdr.version(), length);
-                    sink.writeRiskEvent(reject.orderId(), 0, "rejected", reject.timestamp());
+                    sink.writeRiskEvent(reject.tenantId(), reject.strategyId(),
+                                        reject.orderId(), reject.symbolId(),
+                                        rejectReasonString(reject.rejectReasonRaw()),
+                                        reject.timestamp());
                 }
             }, 50);
 

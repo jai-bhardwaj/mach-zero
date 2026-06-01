@@ -19,7 +19,9 @@ export function TradeDetail({ trade }: Props) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <DetailItem label="Symbol" value={getSymbolName(trade.symbol_id)} />
+        <DetailItem label="Account" value={trade.account_name ?? "—"} />
+        <DetailItem label="Strategy" value={trade.strategy_name ?? "—"} />
+        <DetailItem label="Market" value={getSymbolName(trade.symbol_id)} />
         <DetailItem label="Venue" value={getVenueName(trade.venue)} />
         <DetailItem
           label="Side"
@@ -32,12 +34,12 @@ export function TradeDetail({ trade }: Props) {
                 : "text-muted-foreground"
           }
         />
-        <DetailItem label="Price" value={formatPrice(trade.price)} />
-        <DetailItem label="Quantity" value={formatQuantity(trade.quantity)} />
-        <DetailItem label="Time" value={formatTimestamp(trade.timestamp)} />
+        <DetailItem label="Price" value={formatPrice(trade.price)} className="font-mono tabular-nums" />
+        <DetailItem label="Quantity" value={formatQuantity(trade.quantity)} className="font-mono tabular-nums" />
+        <DetailItem label="Time" value={formatTimestamp(trade.timestamp)} className="font-mono tabular-nums" />
         <DetailItem
           label="Mode"
-          value={trade.trading_mode === "MOCK" ? "Paper" : trade.trading_mode === "LIVE" ? "Live" : trade.trading_mode ?? "N/A"}
+          value={trade.trading_mode === "MOCK" ? "Paper" : trade.trading_mode === "LIVE" ? "Live" : "—"}
         />
       </div>
     </div>

@@ -1,6 +1,7 @@
 #include <common/ipc/AeronPublisher.h>
 #include <common/ipc/AeronSubscriber.h>
 #include <common/ipc/ChannelConfig.h>
+#include <common/ipc/SchemaValidator.h>
 #include <common/ipc/SharedMemoryWriter.h>
 #include <common/metrics/Metrics.h>
 #include <common/metrics/MetricsExporter.h>
@@ -13,6 +14,8 @@
 #include <mach_zero_market_data/OrderRequest.h>
 #include <mach_zero_market_data/OrderAck.h>
 #include <mach_zero_market_data/OrderReject.h>
+#include <mach_zero_market_data/RiskCommand.h>
+#include <mach_zero_market_data/RiskCommandType.h>
 #include <mach_zero_market_data/Venue.h>
 
 #include <iostream>
@@ -37,6 +40,13 @@ static Counter ordersValidated("mz_orders_validated_total", "Orders passing risk
 static Counter ordersRejected("mz_orders_rejected_total", "Orders rejected by risk");
 static Gauge activeSymbols("mz_active_symbols", "Symbols with recent activity");
 static LatencyHistogram riskLatency("mz_risk_latency_ns", "Risk validation latency");
+// Transitional-mode counter: fires when the HTTP handler accepts a
+// kill-switch POST without an explicit tenantId (legacy single-tenant
+// callers). Once this metric shows zero traffic, ACCEPT_LEGACY_KILLSWITCH
+// can be turned off.
+static Counter legacyKillswitchCount(
+    "mz_legacy_killswitch_total",
+    "Kill-switch HTTP calls missing tenantId (transitional legacy path)");
 
 // Simple JSON value extractor (no library dependency)
 static std::string jsonGetString(const std::string& json, const std::string& key) {
@@ -151,6 +161,51 @@ int main() {
     // (bypasses risk checks since we're closing positions)
     AeronPublisher squareOffPub(aeron, std::string(IPC_CHANNEL), VALIDATED_ORDER_STREAM);
 
+    // Publisher for kill-switch commands on the RISK stream. Both
+    // risk-monitor and strategy-engine subscribe to this stream and apply
+    // received commands to their own local KillSwitch state — single
+    // source of truth, fixes the pre-existing bug where the HTTP handler
+    // only toggled risk-monitor's instance (not the engine's).
+    AeronPublisher riskCommandPub(aeron, std::string(IPC_CHANNEL), RISK_STREAM);
+
+    // Legacy-compat rollout flag. When set, kill-switch HTTP calls that
+    // omit `tenantId` in the body default to tenantId=0 (global kill),
+    // matching pre-v3 single-tenant behavior. Flip off after web is
+    // confirmed sending tenantId in every call.
+    const bool acceptLegacyKillswitch =
+        []{ const char* v = std::getenv("ACCEPT_LEGACY_KILLSWITCH"); return v && *v == '1'; }();
+
+    // Helper: parse tenantId from JSON body. Returns (tenantId, isLegacy).
+    auto parseTenantId = [&](const std::string& body) -> std::pair<uint32_t, bool> {
+        std::string tenantIdStr = jsonGetString(body, "tenantId");
+        if (tenantIdStr.empty()) {
+            if (!acceptLegacyKillswitch) {
+                return {UINT32_MAX, false};  // signal "missing, not acceptable"
+            }
+            legacyKillswitchCount.increment();
+            return {0, true};   // legacy = global kill
+        }
+        try {
+            auto v = std::stoul(tenantIdStr);
+            if (v >= RiskState::MAX_TENANTS) return {UINT32_MAX, false};
+            return {static_cast<uint32_t>(v), true};
+        } catch (const std::exception&) {
+            return {UINT32_MAX, false};
+        }
+    };
+
+    // Helper: publish a RiskCommand on the RISK stream.
+    auto publishRiskCommand = [&](RiskCommandType::Value cmd, uint32_t tenantId) {
+        char buf[128];
+        RiskCommand msg;
+        msg.wrapAndApplyHeader(buf, 0, sizeof(buf));
+        uint64_t ts = static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+        msg.commandType(cmd).timestamp(ts).tenantId(tenantId);
+        riskCommandPub.publish(buf, RiskCommand::sbeBlockAndHeaderLength());
+    };
+
     // Square-off manager
     SquareOffManager squareOffMgr(shm, squareOffPub);
 
@@ -159,10 +214,11 @@ int main() {
     int httpPort = portEnv ? std::atoi(portEnv) : 8080;
 
     HttpServer http(httpPort,
-        // GET /status handler
+        // GET /status handler — reports the global kill flag (for legacy
+        // single-tenant UIs). Per-tenant status should be a new route.
         [&]() -> std::string {
             std::ostringstream oss;
-            oss << R"({"killSwitch":)" << (riskEngine.killSwitch().isActive() ? "true" : "false")
+            oss << R"({"killSwitch":)" << (riskEngine.killSwitch().isActive(0) ? "true" : "false")
                 << R"(,"trades":)" << tradesReceived.value()
                 << R"(,"ordersValidated":)" << ordersValidated.value()
                 << R"(,"ordersRejected":)" << ordersRejected.value()
@@ -170,24 +226,51 @@ int main() {
                 << "}";
             return oss.str();
         },
-        // POST /kill-switch/{on|off} handler
-        [&](bool activate) {
-            if (activate) {
-                riskEngine.killSwitch().activate();
-                MZ_INFO("Kill switch ACTIVATED via HTTP");
-            } else {
-                riskEngine.killSwitch().deactivate();
-                MZ_INFO("Kill switch deactivated via HTTP");
+        // POST /kill-switch/{on|off} handler. Publishes a RiskCommand to
+        // the RISK stream — both risk-monitor and strategy-engine apply
+        // it from there, so state stays consistent across processes.
+        [&](bool activate, const std::string& body) {
+            auto [tenantId, ok] = parseTenantId(body);
+            if (!ok) {
+                MZ_WARN("Kill-switch HTTP: tenantId missing/invalid; rejected");
+                return;
             }
+            auto cmd = activate ? RiskCommandType::KillSwitchOn
+                                : RiskCommandType::KillSwitchOff;
+            publishRiskCommand(cmd, tenantId);
+            std::string msg = std::string("Kill switch ") +
+                (activate ? "ACTIVATE" : "deactivate") +
+                " published for engineId=" + std::to_string(tenantId);
+            MZ_INFO(msg.c_str());
         }
     );
 
     // Register POST /square-off route
     http.addPostRoute("/square-off", [&](const std::string& body) -> std::string {
-        // Parse JSON body: {"symbolId": 123, "venue": 1} or {"all": true, "venue": 1}
+        // Parse JSON body:
+        //   {"tenantId": N, "symbolId": 123, "venue": 1}
+        //   {"tenantId": N, "all": true, "venue": 1}
+        // tenantId required. Commit 5 (legacy HTTP compat) will soften this
+        // during rollout via ACCEPT_LEGACY_KILLSWITCH flag.
+        std::string tenantIdStr = jsonGetString(body, "tenantId");
         std::string allStr = jsonGetString(body, "all");
         std::string symbolStr = jsonGetString(body, "symbolId");
         std::string venueStr = jsonGetString(body, "venue");
+
+        uint32_t tenantId = 0;
+        if (!tenantIdStr.empty()) {
+            try {
+                auto v = std::stoul(tenantIdStr);
+                if (v >= RiskState::MAX_TENANTS) {
+                    return R"({"success":false,"error":"tenantId out of range"})";
+                }
+                tenantId = static_cast<uint32_t>(v);
+            } catch (const std::exception&) {
+                return R"({"success":false,"error":"tenantId malformed"})";
+            }
+        }
+        // tenantId=0 accepted here for back-compat with pre-v3 callers; the
+        // SquareOffManager treats non-SHM_TENANT_ID tenants as no-ops.
 
         // Default to Binance if no venue specified
         Venue::Value venue = Venue::Value::Binance;
@@ -199,12 +282,12 @@ int main() {
         SquareOffResult result;
         if (allStr == "true") {
             MZ_INFO("Square-off ALL positions via HTTP");
-            result = squareOffMgr.squareOffAll(venue);
+            result = squareOffMgr.squareOffAll(tenantId, venue);
         } else if (!symbolStr.empty()) {
             uint64_t symbolId = std::stoull(symbolStr);
             std::string msg = "Square-off symbol " + symbolStr + " via HTTP";
             MZ_INFO(msg.c_str());
-            result = squareOffMgr.squareOffSymbol(symbolId, venue);
+            result = squareOffMgr.squareOffSymbol(tenantId, symbolId, venue);
         } else {
             return R"({"success":false,"error":"Missing 'symbolId' or 'all' parameter"})";
         }
@@ -225,6 +308,11 @@ int main() {
                              AeronSubscriber::IdleStrategy::Sleeping);
     AeronSubscriber ackSub(aeron, std::string(IPC_CHANNEL), ACK_STREAM,
                            AeronSubscriber::IdleStrategy::Sleeping);
+    // RISK stream subscriber: applies received RiskCommand messages to our
+    // local KillSwitch. Aeron delivers our own publisher's messages here
+    // too, so we don't need to mutate state directly from the HTTP handler.
+    AeronSubscriber riskSub(aeron, std::string(IPC_CHANNEL), RISK_STREAM,
+                            AeronSubscriber::IdleStrategy::Sleeping);
 
     auto lastRefresh = std::chrono::steady_clock::now();
 
@@ -235,6 +323,7 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == Trade::sbeTemplateId()) {
                     Trade trade;
@@ -252,6 +341,7 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == OrderRequest::sbeTemplateId()) {
                     OrderRequest req;
@@ -262,12 +352,40 @@ int main() {
                 }
             }, 50);
 
+        // Poll RISK stream — apply kill-switch commands to local state
+        riskSub.poll(
+            [&](aeron::concurrent::AtomicBuffer& buffer, aeron::util::index_t offset,
+                aeron::util::index_t length, aeron::Header& /*header*/) {
+                char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
+                MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
+                if (hdr.templateId() != RiskCommand::sbeTemplateId()) return;
+
+                RiskCommand cmd;
+                cmd.wrapForDecode(data, MessageHeader::encodedLength(),
+                                  hdr.blockLength(), hdr.version(), length);
+                auto tenantId = cmd.tenantId();
+                if (tenantId >= RiskState::MAX_TENANTS) return;
+
+                switch (cmd.commandType()) {
+                    case RiskCommandType::KillSwitchOn:
+                        riskEngine.killSwitch().activate(tenantId);
+                        break;
+                    case RiskCommandType::KillSwitchOff:
+                        riskEngine.killSwitch().deactivate(tenantId);
+                        break;
+                    default:
+                        break;
+                }
+            }, 10);
+
         // Poll acks/rejects
         ackSub.poll(
             [&](aeron::concurrent::AtomicBuffer& buffer, aeron::util::index_t offset,
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == OrderAck::sbeTemplateId()) {
                     OrderAck ack;

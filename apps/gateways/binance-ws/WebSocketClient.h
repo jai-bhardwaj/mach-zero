@@ -24,6 +24,11 @@ public:
         ws_.setMinWaitBetweenReconnectionRetries(1000);   // 1s min
         ws_.setMaxWaitBetweenReconnectionRetries(30000);   // 30s max
 
+        // Keepalive ping: without it the Binance stream was idle/NAT-dropped
+        // and reconnect-looped (close code 1001). A 60s heartbeat keeps the
+        // socket alive and lets ixwebsocket detect a dead link promptly.
+        ws_.setPingInterval(60);
+
         ws_.setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg) {
             switch (msg->type) {
                 case ix::WebSocketMessageType::Message:

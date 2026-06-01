@@ -45,10 +45,10 @@ int main(int argc, char* argv[]) {
     // Buffer for SBE encoding
     char sbeBuffer[512];
 
-    // Connect to Binance combined stream for trades and depth
+    // Connect to Binance combined stream for trades and best bid/ask (bookTicker)
     std::string wsUrl = "wss://stream.binance.com:9443/stream?streams="
                         "btcusdt@trade/ethusdt@trade/"
-                        "btcusdt@depth@100ms/ethusdt@depth@100ms";
+                        "btcusdt@bookTicker/ethusdt@bookTicker";
 
     if (argc > 1) {
         wsUrl = argv[1]; // Allow custom URL override
@@ -86,8 +86,8 @@ int main(int argc, char* argv[]) {
             return;
         }
 
-        // Try depth update parse
-        len = parser.parseDepthUpdate(json, jsonLen, sbeBuffer, sizeof(sbeBuffer));
+        // Try bookTicker parse (best bid/ask)
+        len = parser.parseBookTicker(json, jsonLen, sbeBuffer, sizeof(sbeBuffer));
         if (len > 0) {
             publisher.publish(sbeBuffer, len);
             return;

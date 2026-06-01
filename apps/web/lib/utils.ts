@@ -58,6 +58,9 @@ export function pnlColor(pnl: number): string {
 }
 
 export function getSymbolName(symbolId: number): string {
+  // symbolId 0 is the "no symbol" sentinel (e.g. some risk rejections) — show
+  // a dash rather than a meaningless "SYM-0".
+  if (!symbolId) return "—";
   return SYMBOLS[symbolId] ?? `SYM-${symbolId}`;
 }
 
@@ -67,6 +70,14 @@ export function getVenueName(venueId: number): string {
 
 export function getSideName(side: number): string {
   return SIDES[side] ?? `S${side}`;
+}
+
+// Render an engine code (snake_case / lowercase, e.g. "order_rate", "partial")
+// as a human Title Case label ("Order Rate", "Partial"). Shared so the reports
+// charts and the data-table cells format reject reasons / statuses identically.
+export function formatSnakeLabel(raw: string | null | undefined): string {
+  if (!raw) return "—";
+  return raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function formatTimestamp(ts: string | number): string {

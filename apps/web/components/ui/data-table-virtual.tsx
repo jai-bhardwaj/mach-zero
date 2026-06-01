@@ -41,6 +41,11 @@ interface Props<TData> {
   estimateSize?: number;
   overscan?: number;
   maxHeight?: number;
+  // When true, the table fills its parent (which must be a flex column with a
+  // bounded height, e.g. flex-1 min-h-0) and becomes the sole vertical
+  // scroller, instead of being capped at a fixed maxHeight. Preferred for
+  // full-page table views so the table uses the whole viewport.
+  fill?: boolean;
   // Loading / empty
   isLoading?: boolean;
   isValidating?: boolean;
@@ -73,6 +78,7 @@ export function DataTableVirtual<TData>({
   estimateSize = 40,
   overscan = 10,
   maxHeight = 600,
+  fill = false,
   isLoading,
   loadingSkeleton,
   emptyMessage = "No results found.",
@@ -130,14 +136,18 @@ export function DataTableVirtual<TData>({
   const showLoadingBar = isValidating && data.length > 0;
 
   if (showSkeleton) {
-    return <Card className="p-0 py-0 overflow-hidden">{loadingSkeleton}</Card>;
+    return (
+      <Card className={cn("p-0 py-0 overflow-hidden", fill && "flex-1 min-h-0 flex flex-col")}>
+        {loadingSkeleton}
+      </Card>
+    );
   }
 
   const virtualRows = rowVirtualizer.getVirtualItems();
   const totalSize = rowVirtualizer.getTotalSize();
 
   return (
-    <Card className={cn("p-0 py-0 overflow-hidden relative", className)}>
+    <Card className={cn("p-0 py-0 overflow-hidden relative", fill && "flex-1 min-h-0 flex flex-col", className)}>
       {/* Subtle top loading bar during revalidation */}
       {showLoadingBar && (
         <div className="absolute top-0 left-0 right-0 z-20 h-0.5 overflow-hidden bg-muted">
@@ -146,8 +156,8 @@ export function DataTableVirtual<TData>({
       )}
       <div
         ref={parentRef}
-        className="overflow-auto"
-        style={{ maxHeight }}
+        className={cn("overflow-auto", fill && "flex-1 min-h-0")}
+        style={fill ? undefined : { maxHeight }}
         onScroll={() => {
           if (!onLoadMore || !hasMore || !parentRef.current) return;
           if (loadingRef.current) return;

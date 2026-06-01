@@ -5,14 +5,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { filterNavByRole, type NavItem } from "@/lib/nav-items";
+import {
+  filterNavByRole,
+  filterSettingsNavByRole,
+  isSettingsRoute,
+  type NavItem,
+} from "@/lib/nav-items";
 import { useTradingMode } from "@/contexts/TradingModeContext";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
+import { ArrowLeft, ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -58,7 +63,14 @@ export function Sidebar() {
   const tenantName = (session?.user as Record<string, unknown> | undefined)
     ?.tenantName as string | undefined;
 
-  const visibleItems = useMemo(() => filterNavByRole(userRole), [userRole]);
+  // In the Settings area the sidebar swaps in place to the settings nav (+ a
+  // Back button) rather than showing a separate sub-sidebar beside the content.
+  const inSettings = isSettingsRoute(pathname ?? "");
+  const visibleItems = useMemo(
+    () =>
+      inSettings ? filterSettingsNavByRole(userRole) : filterNavByRole(userRole),
+    [inSettings, userRole]
+  );
   const groupedItems = useMemo(() => groupBySection(visibleItems), [visibleItems]);
 
   const collapsed = useSyncExternalStore(
@@ -83,12 +95,12 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200",
+        "flex h-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-all duration-200",
         collapsed ? "w-[52px]" : "w-56"
       )}
     >
       {/* Logo + trading mode indicator */}
-      <div className="flex h-12 items-center border-b border-sidebar-border px-3">
+      <div className="flex h-11 items-center border-b border-sidebar-border px-3">
         <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
             M0
@@ -104,23 +116,76 @@ export function Sidebar() {
         </Link>
       </div>
 
-      {/* Trading mode - compact indicator below logo */}
-      {!collapsed && (
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-sidebar-border">
-          <span
-            className={cn(
-              "h-1.5 w-1.5 rounded-full shrink-0",
-              hasLiveStrategies ? "bg-red-400 animate-pulse" : "bg-blue-400"
-            )}
-          />
-          <span className="text-[11px] text-muted-foreground">
-            {hasLiveStrategies ? `${liveCount} Live` : "Paper Trading"}
-          </span>
-        </div>
+      {/* Swappable region (mode/back block + nav), keyed on inSettings so it
+          remounts and slide-animates ONLY when crossing the app<->settings
+          boundary — not on within-section navigation — synced with main's fade.
+          Settings slides in from the right; the app nav slides back from left. */}
+      <div
+        key={inSettings ? "settings-nav" : "app-nav"}
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          inSettings
+            ? "animate-[navSlideInRight_180ms_ease-out]"
+            : "animate-[navSlideInLeft_180ms_ease-out]"
+        )}
+      >
+      {/* Settings mode: a "Back to app" button (+ section label) replaces the
+          trading-mode indicator, so the single sidebar swaps cleanly between the
+          app nav and the settings nav. */}
+      {inSettings ? (
+        collapsed ? (
+          <div className="border-b border-sidebar-border p-2">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Link
+                    href="/dashboard"
+                    aria-label="Back to app"
+                    className="flex justify-center rounded-md px-2.5 py-[5px] text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4 shrink-0" />
+                  </Link>
+                }
+              />
+              <TooltipContent side="right" sideOffset={8}>
+                Back to app
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        ) : (
+          <div className="border-b border-sidebar-border p-2">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2.5 rounded-md px-2.5 py-[5px] text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span>Back to app</span>
+            </Link>
+            <p className="px-2.5 pt-2 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+              Settings
+            </p>
+          </div>
+        )
+      ) : (
+        !collapsed && (
+          <div className="flex items-center gap-1.5 px-4 py-2 border-b border-sidebar-border">
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full shrink-0",
+                hasLiveStrategies ? "bg-red-400 animate-pulse" : "bg-blue-400"
+              )}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              {hasLiveStrategies ? `${liveCount} Live` : "Paper Trading"}
+            </span>
+          </div>
+        )
       )}
 
-      {/* Navigation with section grouping */}
-      <nav className="flex-1 overflow-y-auto p-2">
+      {/* Navigation with section grouping.
+          min-h-0 lets the nav shrink and scroll instead of pushing the footer
+          (user + Sign out + collapse) below the viewport when items overflow. */}
+      <nav className="flex-1 min-h-0 overflow-y-auto p-2">
         {groupedItems.map((group, groupIndex) => (
           <div key={group.section ?? `group-${groupIndex}`}>
             {/* Section separator (not for first group) */}
@@ -135,7 +200,12 @@ export function Sidebar() {
             )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
-                const active = pathname?.startsWith(item.href);
+                // "/settings" (General) must match exactly, else it would also
+                // light up on /settings/notifications.
+                const active =
+                  item.href === "/settings"
+                    ? pathname === "/settings"
+                    : pathname?.startsWith(item.href);
                 const Icon = item.icon;
 
                 const link = (
@@ -178,6 +248,7 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+      </div>
 
       {/* Footer */}
       <div className="border-t border-sidebar-border p-2 space-y-1">
@@ -230,16 +301,22 @@ export function Sidebar() {
           {!collapsed && <span>Sign out</span>}
         </button>
 
-        {/* Collapse toggle */}
+        {/* Collapse toggle — labelled so it's a discoverable control, not a
+            faint unlabelled chevron at the bottom edge. */}
         <button
           onClick={toggle}
-          className="flex w-full items-center justify-center rounded-md py-1 text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "flex w-full items-center rounded-md px-2.5 py-[5px] text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors",
+            collapsed ? "justify-center" : "gap-2.5"
+          )}
         >
           {collapsed ? (
-            <ChevronsRight className="h-4 w-4" />
+            <ChevronsRight className="h-4 w-4 shrink-0" />
           ) : (
-            <ChevronsLeft className="h-4 w-4" />
+            <ChevronsLeft className="h-4 w-4 shrink-0" />
           )}
+          {!collapsed && <span>Collapse</span>}
         </button>
       </div>
     </aside>

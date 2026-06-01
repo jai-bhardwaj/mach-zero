@@ -5,7 +5,10 @@ add_executable(mach_zero_tests
     test_orderbook.cpp
     test_itch_parser.cpp
     test_risk_engine.cpp
+    test_tenant_limits.cpp
+    test_tenant_isolation.cpp
     test_strategy_engine.cpp
+    test_strategy_loader.cpp
     test_questdb_sink.cpp
     test_shared_memory.cpp
     test_metrics.cpp

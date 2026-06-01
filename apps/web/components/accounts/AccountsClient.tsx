@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,7 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AccountStatusBadge } from "@/components/accounts/AccountStatus";
 import { AccountDialog } from "@/components/accounts/AccountDialog";
-import { DeleteAccountDialog } from "@/components/accounts/DeleteAccountDialog";
 import {
   SEGMENT_LABELS,
   type TradingAccountWithRelations,
@@ -46,9 +46,9 @@ export function AccountsClient({ initialAccounts }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] =
     useState<TradingAccountWithRelations | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingAccount, setDeletingAccount] =
-    useState<TradingAccountWithRelations | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function handleEdit(account: TradingAccountWithRelations) {
     setEditingAccount(account);
@@ -61,8 +61,30 @@ export function AccountsClient({ initialAccounts }: Props) {
   }
 
   function handleDelete(account: TradingAccountWithRelations) {
-    setDeletingAccount(account);
-    setDeleteDialogOpen(true);
+    setDeleteError(null);
+    setConfirmDeleteId(account.id);
+  }
+
+  async function confirmDelete(account: TradingAccountWithRelations) {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/accounts?id=${account.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setDeleteError(data.error ?? "Failed to delete account");
+        return;
+      }
+      toast.success(`Account "${account.name}" deleted`);
+      setConfirmDeleteId(null);
+      mutate();
+    } catch {
+      setDeleteError("Failed to delete account");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function handleValidate(account: TradingAccountWithRelations) {
@@ -161,7 +183,11 @@ export function AccountsClient({ initialAccounts }: Props) {
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
-                      <Button variant="ghost" size="icon-xs" />
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={`Actions for ${acct.name}`}
+                      />
                     }
                   >
                     <MoreVerticalIcon className="size-3.5" />
@@ -256,6 +282,44 @@ export function AccountsClient({ initialAccounts }: Props) {
                   )}
                 </div>
               </div>
+
+              {confirmDeleteId === acct.id && (
+                <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 space-y-2">
+                  <p className="text-xs font-medium text-red-400">
+                    Delete {acct.name}? This action cannot be undone.
+                  </p>
+                  {(acct._count?.strategies ?? 0) > 0 && (
+                    <p className="text-[11px] text-amber-400">
+                      This account has {acct._count?.strategies} attached{" "}
+                      {acct._count?.strategies === 1 ? "strategy" : "strategies"}.{" "}
+                      Remove or reassign them before deleting.
+                    </p>
+                  )}
+                  {deleteError && (
+                    <p className="text-[11px] text-red-400">{deleteError}</p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => confirmDelete(acct)}
+                      disabled={deleting || (acct._count?.strategies ?? 0) > 0}
+                    >
+                      {deleting ? "Deleting..." : "Delete Account"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setConfirmDeleteId(null);
+                        setDeleteError(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -268,16 +332,6 @@ export function AccountsClient({ initialAccounts }: Props) {
         account={editingAccount}
         onSaved={() => mutate()}
       />
-
-      {/* Delete Dialog */}
-      {deletingAccount && (
-        <DeleteAccountDialog
-          account={deletingAccount}
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
-          onDeleted={() => mutate()}
-        />
-      )}
     </>
   );
 }

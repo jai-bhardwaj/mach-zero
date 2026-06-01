@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ import {
   CheckCircle2Icon,
   XCircleIcon,
   LoaderIcon,
+  AlertTriangleIcon,
 } from "lucide-react";
 
 interface Props {
@@ -56,6 +58,10 @@ export function AccountDialog({ open, onOpenChange, account, onSaved }: Props) {
   const [validationResult, setValidationResult] =
     useState<AccountValidationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // User must explicitly opt in to saving an API key that has the
+  // withdraw permission enabled. Mach-Zero never withdraws — this is
+  // purely about reducing blast radius if the user's stored key leaks.
+  const [acknowledgeWithdrawRisk, setAcknowledgeWithdrawRisk] = useState(false);
 
   const credentialFields = VENUE_CREDENTIAL_FIELDS[venue] ?? [];
   const segments = VENUE_SEGMENTS[venue] ?? [];
@@ -71,6 +77,7 @@ export function AccountDialog({ open, onOpenChange, account, onSaved }: Props) {
   function handleCredentialChange(key: string, value: string) {
     setCredentials((prev) => ({ ...prev, [key]: value }));
     setValidationResult(null);
+    setAcknowledgeWithdrawRisk(false);   // re-acknowledge after key change
   }
 
   async function handleValidate() {
@@ -160,6 +167,7 @@ export function AccountDialog({ open, onOpenChange, account, onSaved }: Props) {
         });
       }
 
+      toast.success(isEditing ? "Account updated" : "Account connected");
       onOpenChange(false);
       resetForm();
       onSaved();
@@ -179,6 +187,7 @@ export function AccountDialog({ open, onOpenChange, account, onSaved }: Props) {
       setShowSecrets({});
       setValidationResult(null);
       setError(null);
+      setAcknowledgeWithdrawRisk(false);
     }
   }
 
@@ -187,8 +196,19 @@ export function AccountDialog({ open, onOpenChange, account, onSaved }: Props) {
     credentials.apiKey?.length > 0 &&
     credentials.apiSecret?.length > 0;
 
+  // Withdraw-permission keys are gated behind explicit acknowledgment.
+  // For Binance specifically we won't accept a key we *know* has
+  // withdraw enabled unless the user has ticked the override checkbox.
+  const blockedByWithdrawRisk =
+    venue === "Binance" &&
+    validationResult?.valid === true &&
+    validationResult?.canWithdraw === true &&
+    !acknowledgeWithdrawRisk;
+
   const canSave =
-    name.trim().length >= 2 && selectedSegments.length > 0;
+    name.trim().length >= 2 &&
+    selectedSegments.length > 0 &&
+    !blockedByWithdrawRisk;
 
   return (
     <Dialog
@@ -392,6 +412,43 @@ export function AccountDialog({ open, onOpenChange, account, onSaved }: Props) {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Withdrawal permission warning. Mach-Zero never withdraws,
+                  so a key with this permission is purely added blast
+                  radius for the user. Save is gated behind explicit
+                  acknowledgment. */}
+              {validationResult?.valid && validationResult.canWithdraw && (
+                <div className="rounded-md border border-red-500/40 bg-red-950/30 px-3 py-3 text-xs text-red-300">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangleIcon className="size-4 shrink-0 mt-0.5" />
+                    <div className="space-y-2">
+                      <div className="font-semibold text-red-200">
+                        Withdrawal permission is enabled on this API key.
+                      </div>
+                      <p className="text-red-300/90">
+                        Mach-Zero never withdraws funds — this permission only
+                        increases your risk if the stored key is ever leaked.
+                        We strongly recommend regenerating the key on Binance
+                        with <span className="font-mono">Enable Spot &amp; Margin Trading</span> only,
+                        then re-validating here.
+                      </p>
+                      <label className="flex items-start gap-2 pt-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={acknowledgeWithdrawRisk}
+                          onChange={(e) =>
+                            setAcknowledgeWithdrawRisk(e.target.checked)
+                          }
+                          className="mt-0.5"
+                        />
+                        <span className="text-red-200">
+                          I understand the risk and want to save this key anyway.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

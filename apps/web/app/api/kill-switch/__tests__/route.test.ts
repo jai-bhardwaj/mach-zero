@@ -9,8 +9,22 @@ vi.mock("@/lib/require-auth", () => ({
     role: "ADMIN",
     tenantId: "tenant-1",
     tenantName: "Test Tenant",
+    engineId: 1,
   }),
   isAuthError: vi.fn().mockReturnValue(false),
+}));
+
+// Mock Prisma — kill-switch route audit-logs and resolves tenant UUIDs
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    auditLog: { create: vi.fn().mockResolvedValue({}) },
+    tenantMapping: { findUnique: vi.fn().mockResolvedValue(null) },
+  },
+}));
+
+// Alert evaluator is fire-and-forget; stub it
+vi.mock("@/lib/alert-evaluator", () => ({
+  evaluateAlerts: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock global fetch for C++ proxy calls
@@ -150,6 +164,60 @@ describe("POST /api/kill-switch", () => {
     const res2 = await POST(req2);
     const data2 = await res2.json();
     expect(data2.killSwitch).toBe(false);
+  });
+});
+
+describe("killSwitch normalization (real C++ string payloads)", () => {
+  // The C++ risk monitor returns killSwitch as the strings "activated" /
+  // "deactivated" on the POST endpoints (and could on /status). The route must
+  // normalize these to booleans so clients never coerce a truthy "deactivated".
+  it("GET normalizes string 'activated' -> true and sets source=monitor", async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({ killSwitch: "activated", tradesProcessed: 5 }),
+    });
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data.killSwitch).toBe(true);
+    expect(typeof data.killSwitch).toBe("boolean");
+    expect(data.source).toBe("monitor");
+  });
+
+  it("POST on normalizes string 'activated' -> true (the optimistic-update bug)", async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({ killSwitch: "activated" }),
+    });
+
+    const req = new NextRequest("http://localhost/api/kill-switch", {
+      method: "POST",
+      body: JSON.stringify({ state: "on" }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(data.killSwitch).toBe(true);
+    expect(typeof data.killSwitch).toBe("boolean");
+  });
+
+  it("POST off normalizes string 'deactivated' -> false", async () => {
+    mockFetch.mockResolvedValue({
+      json: async () => ({ killSwitch: "deactivated" }),
+    });
+
+    const req = new NextRequest("http://localhost/api/kill-switch", {
+      method: "POST",
+      body: JSON.stringify({ state: "off" }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(data.killSwitch).toBe(false);
+    expect(typeof data.killSwitch).toBe("boolean");
   });
 });
 

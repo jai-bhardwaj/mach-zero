@@ -18,7 +18,9 @@ namespace mach_zero::risk {
 class HttpServer {
 public:
     using StatusHandler = std::function<std::string()>;
-    using ToggleHandler = std::function<void(bool)>;
+    // ToggleHandler receives the raw request body so it can parse
+    // per-tenant targets from JSON. Body is empty for older callers.
+    using ToggleHandler = std::function<void(bool, const std::string&)>;
     using PostHandler = std::function<std::string(const std::string& body)>;
 
     HttpServer(int port, StatusHandler statusFn, ToggleHandler toggleFn)
@@ -105,10 +107,12 @@ private:
         if (method == "GET" && path == "/status") {
             responseBody = statusFn_();
         } else if (method == "POST" && path == "/kill-switch/on") {
-            toggleFn_(true);
+            std::string body = extractBody(request);
+            toggleFn_(true, body);
             responseBody = R"({"killSwitch":true,"action":"activated"})";
         } else if (method == "POST" && path == "/kill-switch/off") {
-            toggleFn_(false);
+            std::string body = extractBody(request);
+            toggleFn_(false, body);
             responseBody = R"({"killSwitch":false,"action":"deactivated"})";
         }
         // Dynamic POST routes

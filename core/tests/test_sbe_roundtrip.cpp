@@ -7,6 +7,7 @@
 #include <mach_zero_market_data/CancelRequest.h>
 #include <mach_zero_market_data/Heartbeat.h>
 #include <mach_zero_market_data/RiskCommand.h>
+#include <mach_zero_market_data/SquareOffCommand.h>
 #include <mach_zero_market_data/MessageHeader.h>
 #include <mach_zero_market_data/Side.h>
 #include <mach_zero_market_data/Venue.h>
@@ -15,6 +16,8 @@
 #include <mach_zero_market_data/OrderStatus.h>
 #include <mach_zero_market_data/RejectReason.h>
 #include <mach_zero_market_data/RiskCommandType.h>
+#include <mach_zero_market_data/SquareOffScope.h>
+#include <common/ipc/SchemaValidator.h>
 
 using namespace mach_zero::market_data;
 
@@ -94,7 +97,9 @@ TEST(SbeRoundtrip, OrderRequest) {
         .orderType(OrderType::Limit)
         .timeInForce(TimeInForce::GTC)
         .venue(Venue::Binance)
-        .timestamp(1111111111ULL);
+        .timestamp(1111111111ULL)
+        .tenantId(42u)
+        .strategyId(7777u);
 
     MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
     EXPECT_EQ(hdr.templateId(), OrderRequest::sbeTemplateId());
@@ -114,6 +119,8 @@ TEST(SbeRoundtrip, OrderRequest) {
     EXPECT_EQ(decoder.timeInForce(), TimeInForce::GTC);
     EXPECT_EQ(decoder.venue(), Venue::Binance);
     EXPECT_EQ(decoder.timestamp(), 1111111111ULL);
+    EXPECT_EQ(decoder.tenantId(), 42u);
+    EXPECT_EQ(decoder.strategyId(), 7777u);
 }
 
 TEST(SbeRoundtrip, OrderAck) {
@@ -129,7 +136,10 @@ TEST(SbeRoundtrip, OrderAck) {
         .avgPrice(5000500000LL)
         .exchangeOrderId(99999)
         .venue(Venue::Binance)
-        .timestamp(2222222222ULL);
+        .timestamp(2222222222ULL)
+        .tenantId(7u)
+        .side(Side::Sell)
+        .strategyId(4242u);
 
     MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
     OrderAck decoder;
@@ -142,6 +152,9 @@ TEST(SbeRoundtrip, OrderAck) {
     EXPECT_EQ(decoder.filledQuantity(), 250000000ULL);
     EXPECT_EQ(decoder.avgPrice(), 5000500000LL);
     EXPECT_EQ(decoder.exchangeOrderId(), 99999u);
+    EXPECT_EQ(decoder.tenantId(), 7u);
+    EXPECT_EQ(decoder.side(), Side::Sell);
+    EXPECT_EQ(decoder.strategyId(), 4242u);
 }
 
 TEST(SbeRoundtrip, OrderReject) {
@@ -153,7 +166,10 @@ TEST(SbeRoundtrip, OrderReject) {
         .clientOrderId(200)
         .rejectReason(RejectReason::PriceBand)
         .venue(Venue::NSE)
-        .timestamp(3333333333ULL);
+        .timestamp(3333333333ULL)
+        .tenantId(13u)
+        .symbolId(2u)
+        .strategyId(8888u);
 
     MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
     OrderReject decoder;
@@ -164,6 +180,9 @@ TEST(SbeRoundtrip, OrderReject) {
     EXPECT_EQ(decoder.orderId(), 100u);
     EXPECT_EQ(decoder.rejectReason(), RejectReason::PriceBand);
     EXPECT_EQ(decoder.venue(), Venue::NSE);
+    EXPECT_EQ(decoder.tenantId(), 13u);
+    EXPECT_EQ(decoder.symbolId(), 2u);
+    EXPECT_EQ(decoder.strategyId(), 8888u);
 }
 
 TEST(SbeRoundtrip, CancelRequest) {
@@ -175,7 +194,8 @@ TEST(SbeRoundtrip, CancelRequest) {
         .clientOrderId(200)
         .symbolId(5)
         .venue(Venue::Binance)
-        .timestamp(4444444444ULL);
+        .timestamp(4444444444ULL)
+        .tenantId(99u);
 
     MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
     CancelRequest decoder;
@@ -186,6 +206,7 @@ TEST(SbeRoundtrip, CancelRequest) {
     EXPECT_EQ(decoder.orderId(), 100u);
     EXPECT_EQ(decoder.clientOrderId(), 200u);
     EXPECT_EQ(decoder.symbolId(), 5u);
+    EXPECT_EQ(decoder.tenantId(), 99u);
 }
 
 TEST(SbeRoundtrip, Heartbeat) {
@@ -214,7 +235,8 @@ TEST(SbeRoundtrip, RiskCommand) {
     RiskCommand encoder;
     encoder.wrapAndApplyHeader(buf, 0, sizeof(buf));
     encoder.commandType(RiskCommandType::KillSwitchOn)
-        .timestamp(6666666666ULL);
+        .timestamp(6666666666ULL)
+        .tenantId(1u);
 
     MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
     RiskCommand decoder;
@@ -224,4 +246,68 @@ TEST(SbeRoundtrip, RiskCommand) {
 
     EXPECT_EQ(decoder.commandType(), RiskCommandType::KillSwitchOn);
     EXPECT_EQ(decoder.timestamp(), 6666666666ULL);
+    EXPECT_EQ(decoder.tenantId(), 1u);
+}
+
+TEST(SbeRoundtrip, SquareOffCommand) {
+    char buf[128];
+
+    SquareOffCommand encoder;
+    encoder.wrapAndApplyHeader(buf, 0, sizeof(buf));
+    encoder.symbolId(42)
+        .scope(SquareOffScope::All)
+        .venue(Venue::Binance)
+        .timestamp(7777777777ULL)
+        .tenantId(5u);
+
+    MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
+    SquareOffCommand decoder;
+    decoder.wrapForDecode(buf, MessageHeader::encodedLength(),
+                          hdr.blockLength(), hdr.version(),
+                          SquareOffCommand::sbeBlockAndHeaderLength());
+
+    EXPECT_EQ(decoder.symbolId(), 42u);
+    EXPECT_EQ(decoder.scope(), SquareOffScope::All);
+    EXPECT_EQ(decoder.venue(), Venue::Binance);
+    EXPECT_EQ(decoder.timestamp(), 7777777777ULL);
+    EXPECT_EQ(decoder.tenantId(), 5u);
+}
+
+// Schema validator tests — verify that the hard-reject path works.
+// A stale producer (v2) feeding a v3 consumer would decode garbage
+// without this gate.
+
+TEST(SchemaValidator, AcceptsCurrentSchema) {
+    char buf[128];
+    OrderRequest encoder;
+    encoder.wrapAndApplyHeader(buf, 0, sizeof(buf));
+    MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
+    EXPECT_TRUE(mach_zero::ipc::isValidSchema(hdr));
+}
+
+TEST(SchemaValidator, RejectsMismatchedSchemaId) {
+    char buf[128];
+    // Write a valid header then overwrite schemaId with a stale value (1).
+    MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
+    hdr.blockLength(0).templateId(0).schemaId(1).version(3);
+    EXPECT_FALSE(mach_zero::ipc::isValidSchema(hdr));
+}
+
+TEST(SchemaValidator, RejectsOlderVersion) {
+    char buf[128];
+    MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
+    // Correct schemaId (2), but version 2 (one below the current 3).
+    hdr.blockLength(0).templateId(0).schemaId(MessageHeader::sbeSchemaId()).version(2);
+    EXPECT_FALSE(mach_zero::ipc::isValidSchema(hdr));
+}
+
+TEST(SchemaValidator, AcceptsEqualOrNewerVersion) {
+    char buf[128];
+    MessageHeader hdr(buf, sizeof(buf), MessageHeader::sbeSchemaVersion());
+    // Same schemaId, current version — accepted.
+    hdr.blockLength(0).templateId(0).schemaId(MessageHeader::sbeSchemaId()).version(3);
+    EXPECT_TRUE(mach_zero::ipc::isValidSchema(hdr));
+    // Same schemaId, future version — accepted (forward-compat per SBE design).
+    hdr.version(4);
+    EXPECT_TRUE(mach_zero::ipc::isValidSchema(hdr));
 }

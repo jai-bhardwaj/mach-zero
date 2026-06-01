@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { STRATEGY_TYPES, SYMBOL_MAP } from "@/types";
+import { paramToInput, paramToStored, paramLabel } from "@/lib/strategy-params";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +47,7 @@ export function StrategyCreateForm({ tenantId, accounts, onSave, onClose }: Prop
   const [params, setParams] = useState<Record<string, string>>(() => {
     const defaults = STRATEGY_TYPES[type]?.defaultParams ?? {};
     return Object.fromEntries(
-      Object.entries(defaults).map(([k, v]) => [k, String(v)])
+      Object.entries(defaults).map(([k, v]) => [k, paramToInput(k, v)])
     );
   });
   const [maxPositionLimit, setMaxPositionLimit] = useState("");
@@ -58,7 +59,7 @@ export function StrategyCreateForm({ tenantId, accounts, onSave, onClose }: Prop
     const defaults = STRATEGY_TYPES[newType]?.defaultParams ?? {};
     setParams(
       Object.fromEntries(
-        Object.entries(defaults).map(([k, v]) => [k, String(v)])
+        Object.entries(defaults).map(([k, v]) => [k, paramToInput(k, v)])
       )
     );
   };
@@ -69,7 +70,7 @@ export function StrategyCreateForm({ tenantId, accounts, onSave, onClose }: Prop
     e.preventDefault();
     const parsedParams: Record<string, number> = {};
     for (const [key, value] of Object.entries(params)) {
-      parsedParams[key] = Number(value);
+      parsedParams[key] = paramToStored(key, value) as number;
     }
 
     onSave({
@@ -157,7 +158,7 @@ export function StrategyCreateForm({ tenantId, accounts, onSave, onClose }: Prop
             <div className="space-y-2">
               {Object.entries(params).map(([key, value]) => (
                 <div key={key} className="flex items-center gap-2">
-                  <Label className="w-32 text-xs">{key}</Label>
+                  <Label className="w-32 text-xs">{paramLabel(key)}</Label>
                   <Input
                     type="number"
                     value={value}

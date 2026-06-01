@@ -53,27 +53,41 @@ struct SquareOffResult {
 };
 
 // Generates counter-orders to close open positions.
-// Reads positions from shared memory and publishes market orders
-// to VALIDATED_ORDER_STREAM (bypassing risk checks).
+// Reads positions from shared memory and publishes market orders to
+// VALIDATED_ORDER_STREAM (bypassing risk checks).
+//
+// SHM is pinned to tenantId=1's view in the shared-tier rollout
+// (see risk-monitor main.cpp). Square-off for tenantId!=1 returns a
+// successful no-op: the multi-tenant SHM is a tracked follow-up.
+// The emitted OrderRequest carries the caller's tenantId so it routes
+// correctly downstream regardless of the shm limitation.
 class SquareOffManager {
 public:
+    // tenantId that the shared-memory view represents. Commit 3 pins this
+    // to 1 (the default tenant). Multi-tenant SHM is a follow-up.
+    static constexpr uint32_t SHM_TENANT_ID = 1;
+
     SquareOffManager(const SharedMemoryWriter& shm, AeronPublisher& orderPub)
         : shm_(shm), orderPub_(orderPub) {}
 
-    // Square off a single symbol's position
-    SquareOffResult squareOffSymbol(uint64_t symbolId, Venue::Value venue) {
+    // Square off a single symbol's position for the given tenant.
+    SquareOffResult squareOffSymbol(uint32_t tenantId, uint64_t symbolId, Venue::Value venue) {
         SquareOffResult result{true, 0, {}};
+
+        // Shared-tier limitation: shm is tenantId=1-only. Other tenants
+        // see no positions via this path.
+        if (tenantId != SHM_TENANT_ID) return result;
 
         const auto* sym = shm_.getSymbol(symbolId);
         if (!sym || sym->position == 0) {
-            return result;  // Nothing to close
+            return result;
         }
 
         int64_t pos = sym->position;
         auto side = pos > 0 ? Side::Value::Sell : Side::Value::Buy;
         uint64_t qty = static_cast<uint64_t>(std::abs(pos));
 
-        if (emitCloseOrder(symbolId, side, qty, venue)) {
+        if (emitCloseOrder(tenantId, symbolId, side, qty, venue)) {
             result.symbolsSquaredOff = 1;
             result.details.push_back({symbolId, pos, pos > 0});
         } else {
@@ -83,9 +97,11 @@ public:
         return result;
     }
 
-    // Square off ALL non-zero positions across all symbols
-    SquareOffResult squareOffAll(Venue::Value venue) {
+    // Square off ALL non-zero positions for the given tenant.
+    SquareOffResult squareOffAll(uint32_t tenantId, Venue::Value venue) {
         SquareOffResult result{true, 0, {}};
+
+        if (tenantId != SHM_TENANT_ID) return result;
 
         for (uint64_t i = 0; i < SHM_MAX_SYMBOLS; ++i) {
             const auto* sym = shm_.getSymbol(i);
@@ -95,7 +111,7 @@ public:
             auto side = pos > 0 ? Side::Value::Sell : Side::Value::Buy;
             uint64_t qty = static_cast<uint64_t>(std::abs(pos));
 
-            if (emitCloseOrder(i, side, qty, venue)) {
+            if (emitCloseOrder(tenantId, i, side, qty, venue)) {
                 result.symbolsSquaredOff++;
                 result.details.push_back({i, pos, pos > 0});
             }
@@ -105,8 +121,8 @@ public:
     }
 
 private:
-    bool emitCloseOrder(uint64_t symbolId, Side::Value side, uint64_t quantity,
-                        Venue::Value venue) {
+    bool emitCloseOrder(uint32_t tenantId, uint64_t symbolId, Side::Value side,
+                        uint64_t quantity, Venue::Value venue) {
         char buf[256];
         uint64_t orderId = nextOrderId_.fetch_add(1, std::memory_order_relaxed);
         uint64_t ts = static_cast<uint64_t>(
@@ -124,7 +140,8 @@ private:
            .orderType(OrderType::Value::Market)
            .timeInForce(TimeInForce::Value::IOC)
            .venue(venue)
-           .timestamp(ts);
+           .timestamp(ts)
+           .tenantId(tenantId);
 
         auto pos = orderPub_.publish(buf, OrderRequest::sbeBlockAndHeaderLength());
         return pos >= 0;  // Positive = success, negative = back-pressure

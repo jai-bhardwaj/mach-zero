@@ -205,7 +205,7 @@ function BacktestResultsPanel({ results }: { results: BacktestResults }) {
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={results.equityCurve}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0 0)" opacity={0.3} />
               <XAxis
                 dataKey="timestamp"
                 tickFormatter={(ts) =>
@@ -214,18 +214,18 @@ function BacktestResultsPanel({ results }: { results: BacktestResults }) {
                     day: "numeric",
                   })
                 }
-                stroke="#52525b"
-                tick={{ fontSize: 10 }}
+                stroke="oklch(0.3 0 0)"
+                tick={{ fill: "oklch(0.55 0 0)", fontSize: 10 }}
               />
               <YAxis
-                stroke="#52525b"
-                tick={{ fontSize: 10 }}
+                stroke="oklch(0.3 0 0)"
+                tick={{ fill: "oklch(0.55 0 0)", fontSize: 10 }}
                 tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#18181b",
-                  border: "1px solid #3f3f46",
+                  backgroundColor: "oklch(0.185 0.005 285)",
+                  border: "1px solid oklch(0.3 0 0)",
                   borderRadius: "6px",
                   fontSize: "12px",
                 }}
@@ -235,7 +235,7 @@ function BacktestResultsPanel({ results }: { results: BacktestResults }) {
               <Line
                 type="monotone"
                 dataKey="equity"
-                stroke="#22c55e"
+                stroke="oklch(0.638 0.2 145)"
                 strokeWidth={1.5}
                 dot={false}
               />
@@ -266,7 +266,7 @@ function BacktestResultsPanel({ results }: { results: BacktestResults }) {
                   key={i}
                   className="border-b border-border/50 last:border-0"
                 >
-                  <td className="py-1.5 text-zinc-400">
+                  <td className="py-1.5 font-mono tabular-nums text-zinc-400">
                     {new Date(t.timestamp).toLocaleTimeString()}
                   </td>
                   <td
@@ -277,15 +277,15 @@ function BacktestResultsPanel({ results }: { results: BacktestResults }) {
                   >
                     {t.side}
                   </td>
-                  <td className="py-1.5 text-right tabular-nums text-zinc-300">
+                  <td className="py-1.5 text-right font-mono tabular-nums text-zinc-300">
                     {t.price.toLocaleString()}
                   </td>
-                  <td className="py-1.5 text-right tabular-nums text-zinc-400">
+                  <td className="py-1.5 text-right font-mono tabular-nums text-zinc-400">
                     {t.quantity}
                   </td>
                   <td
                     className={cn(
-                      "py-1.5 text-right tabular-nums font-medium",
+                      "py-1.5 text-right font-mono tabular-nums font-medium",
                       t.pnl >= 0 ? "text-green-400" : "text-red-400"
                     )}
                   >
@@ -314,7 +314,7 @@ function MetricCard({
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <p className="text-xs text-zinc-500">{label}</p>
-      <p className={cn("mt-1 text-lg font-semibold tabular-nums", color)}>
+      <p className={cn("mt-1 text-lg font-mono font-semibold tabular-nums", color)}>
         {value}
       </p>
     </div>

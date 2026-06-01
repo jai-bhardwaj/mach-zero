@@ -228,13 +228,13 @@ function LogsList() {
               variant={log.status === "sent" ? "default" : "destructive"}
               className="text-[10px]"
             >
-              {log.status}
+              {log.status.toUpperCase()}
             </Badge>
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
             <span>{log.channel.name}</span>
             <span>·</span>
-            <span>{new Date(log.sentAt).toLocaleString()}</span>
+            <span className="font-mono tabular-nums">{new Date(log.sentAt).toLocaleString()}</span>
             {log.error && (
               <span className="text-red-400">Error: {log.error}</span>
             )}

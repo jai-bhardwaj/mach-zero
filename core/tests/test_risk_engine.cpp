@@ -20,10 +20,14 @@ using namespace mach_zero::market_data;
 
 namespace {
 
+constexpr uint32_t TEST_TENANT_ID = 1;
+constexpr uint8_t  BINANCE_VENUE  = static_cast<uint8_t>(Venue::Value::Binance);
+
 // Helper: create an SBE OrderRequest in a buffer
 void makeOrder(char* buf, size_t bufLen, uint64_t orderId, uint64_t symbolId,
                Side::Value side, int64_t price, uint64_t quantity,
-               Venue::Value venue = Venue::Binance) {
+               Venue::Value venue = Venue::Binance,
+               uint32_t tenantId = TEST_TENANT_ID) {
     OrderRequest req;
     req.wrapAndApplyHeader(buf, 0, bufLen);
     req.orderId(orderId)
@@ -35,7 +39,8 @@ void makeOrder(char* buf, size_t bufLen, uint64_t orderId, uint64_t symbolId,
        .orderType(OrderType::Limit)
        .timeInForce(TimeInForce::GTC)
        .venue(venue)
-       .timestamp(1000000000ULL);
+       .timestamp(1000000000ULL)
+       .tenantId(tenantId);
 }
 
 // Helper: decode an OrderRequest from a buffer (after header)
@@ -105,7 +110,7 @@ TEST(KillSwitch, ActivateRejectsOrders) {
 TEST(PriceBandCheck, PassesWithinBand) {
     PriceBandCheck check(5.0); // 5% band
     RiskState state;
-    state.setLastPrice(1, 5000000000000LL); // 50000.0
+    state.setLastPrice(BINANCE_VENUE, 1, 5000000000000LL); // 50000.0
 
     char buf[256];
     // Price within 5%: 50000 * 1.04 = 52000
@@ -119,7 +124,7 @@ TEST(PriceBandCheck, PassesWithinBand) {
 TEST(PriceBandCheck, RejectsOutsideBand) {
     PriceBandCheck check(5.0);
     RiskState state;
-    state.setLastPrice(1, 5000000000000LL); // 50000.0
+    state.setLastPrice(BINANCE_VENUE, 1, 5000000000000LL); // 50000.0
 
     char buf[256];
     // Price 10% away: 55000
@@ -161,7 +166,7 @@ TEST(PositionLimitCheck, PassesWithinLimit) {
 TEST(PositionLimitCheck, RejectsExceedingLimit) {
     PositionLimitCheck check(1000000000LL); // max 10.0
     RiskState state;
-    state.setPosition(1, 800000000LL); // Already at 8.0
+    state.setPosition(TEST_TENANT_ID, 1, 800000000LL); // Already at 8.0
 
     char buf[256];
     makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 500000000ULL); // +5.0 = 13.0
@@ -175,7 +180,7 @@ TEST(PositionLimitCheck, RejectsExceedingLimit) {
 TEST(PositionLimitCheck, SellReducesPosition) {
     PositionLimitCheck check(1000000000LL); // max 10.0
     RiskState state;
-    state.setPosition(1, 800000000LL); // 8.0
+    state.setPosition(TEST_TENANT_ID, 1, 800000000LL); // 8.0
 
     char buf[256];
     makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Sell, 5000000000000LL, 500000000ULL); // -5.0 = 3.0
@@ -203,9 +208,9 @@ TEST(OrderRateCheck, RejectsAtLimit) {
     OrderRateCheck check(3);
     RiskState state;
     // Simulate 3 orders already sent
-    state.incrementOrderCount(1);
-    state.incrementOrderCount(1);
-    state.incrementOrderCount(1);
+    state.incrementOrderCount(TEST_TENANT_ID, 1);
+    state.incrementOrderCount(TEST_TENANT_ID, 1);
+    state.incrementOrderCount(TEST_TENANT_ID, 1);
 
     char buf[256];
     makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL);
@@ -219,11 +224,11 @@ TEST(OrderRateCheck, RejectsAtLimit) {
 TEST(OrderRateCheck, ResetsCounters) {
     OrderRateCheck check(3);
     RiskState state;
-    state.incrementOrderCount(1);
-    state.incrementOrderCount(1);
-    state.incrementOrderCount(1);
+    state.incrementOrderCount(TEST_TENANT_ID, 1);
+    state.incrementOrderCount(TEST_TENANT_ID, 1);
+    state.incrementOrderCount(TEST_TENANT_ID, 1);
 
-    state.resetOrderCounts();
+    state.resetAllOrderCounts();
 
     char buf[256];
     makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL);
@@ -264,7 +269,7 @@ TEST(MaxOrderSizeCheck, RejectsOverMax) {
 
 TEST(RiskEngine, ValidOrderPasses) {
     RiskEngine engine;
-    engine.state().setLastPrice(1, 5000000000000LL); // Set ref price
+    engine.state().setLastPrice(BINANCE_VENUE, 1, 5000000000000LL); // Set ref price
 
     char buf[256];
     makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL);
@@ -289,7 +294,7 @@ TEST(RiskEngine, KillSwitchRejectsFirst) {
 
 TEST(RiskEngine, PipelineChainRejects) {
     RiskEngine engine;
-    engine.state().setLastPrice(1, 5000000000000LL);
+    engine.state().setLastPrice(BINANCE_VENUE, 1, 5000000000000LL);
 
     char buf[256];
     // Price 20% off = rejected by price band
@@ -308,9 +313,9 @@ TEST(RiskEngine, OrderCountIncrementsOnPass) {
     makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL);
     auto order = decodeOrder(buf, sizeof(buf));
 
-    EXPECT_EQ(engine.state().getOrderCount(1), 0u);
+    EXPECT_EQ(engine.state().getOrderCount(TEST_TENANT_ID, 1), 0u);
     engine.validate(order);
-    EXPECT_EQ(engine.state().getOrderCount(1), 1u);
+    EXPECT_EQ(engine.state().getOrderCount(TEST_TENANT_ID, 1), 1u);
 }
 
 TEST(RiskEngine, OnTradeUpdatesLastPrice) {
@@ -321,7 +326,7 @@ TEST(RiskEngine, OnTradeUpdatesLastPrice) {
     auto trade = decodeTrade(buf, sizeof(buf));
 
     engine.onTrade(trade);
-    EXPECT_EQ(engine.state().getLastPrice(1), 5000000000000LL);
+    EXPECT_EQ(engine.state().getLastPrice(BINANCE_VENUE, 1), 5000000000000LL);
 }
 
 TEST(RiskEngine, CreateRejectMessage) {
@@ -342,13 +347,83 @@ TEST(RiskEngine, CreateRejectMessage) {
                          hdr.blockLength(), hdr.version(), len);
     EXPECT_EQ(reject.orderId(), 42u);
     EXPECT_EQ(reject.rejectReason(), RejectReason::PriceBand);
+    // Reject carries the originating order's tenantId
+    EXPECT_EQ(reject.tenantId(), TEST_TENANT_ID);
+}
+
+// --- InvalidTenant entry-check tests ---
+
+TEST(RiskEngineEntryCheck, RejectsTenantIdZero) {
+    RiskEngine engine;
+    char buf[256];
+    makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/0);
+    auto order = decodeOrder(buf, sizeof(buf));
+
+    auto result = engine.validate(order);
+    EXPECT_FALSE(result.passed);
+    EXPECT_EQ(result.reason, RejectReason::InvalidTenant);
+}
+
+TEST(RiskEngineEntryCheck, RejectsTenantIdAtMax) {
+    RiskEngine engine;
+    char buf[256];
+    makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/RiskState::MAX_TENANTS);
+    auto order = decodeOrder(buf, sizeof(buf));
+
+    auto result = engine.validate(order);
+    EXPECT_FALSE(result.passed);
+    EXPECT_EQ(result.reason, RejectReason::InvalidTenant);
+}
+
+TEST(RiskEngineEntryCheck, RejectsUnknownTenantWhenRegistrySet) {
+    TenantLimitsRegistry reg;
+    TenantLimits lim;
+    reg.set(1, lim);  // Only tenant 1 known
+
+    RiskEngine engine;
+    engine.setLimitsRegistry(&reg);
+
+    // Tenant 1 passes entry check
+    char buf1[256];
+    makeOrder(buf1, sizeof(buf1), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/1);
+    auto order1 = decodeOrder(buf1, sizeof(buf1));
+    EXPECT_TRUE(engine.validate(order1).passed);
+
+    // Tenant 7 not in registry — rejected as InvalidTenant
+    char buf7[256];
+    makeOrder(buf7, sizeof(buf7), 2, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/7);
+    auto order7 = decodeOrder(buf7, sizeof(buf7));
+    auto result = engine.validate(order7);
+    EXPECT_FALSE(result.passed);
+    EXPECT_EQ(result.reason, RejectReason::InvalidTenant);
+}
+
+TEST(RiskEngineEntryCheck, RejectCarriesTenantId) {
+    RiskEngine engine;
+    char buf[256];
+    makeOrder(buf, sizeof(buf), 42, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL,
+              Venue::Binance, /*tenantId=*/7);
+    auto order = decodeOrder(buf, sizeof(buf));
+
+    char rejectBuf[256];
+    engine.createReject(order, RejectReason::PriceBand, rejectBuf, sizeof(rejectBuf));
+
+    MessageHeader hdr(rejectBuf, sizeof(rejectBuf), MessageHeader::sbeSchemaVersion());
+    OrderReject reject;
+    reject.wrapForDecode(rejectBuf, MessageHeader::encodedLength(),
+                         hdr.blockLength(), hdr.version(), sizeof(rejectBuf));
+    EXPECT_EQ(reject.tenantId(), 7u);
 }
 
 // --- Benchmark ---
 
 TEST(RiskEngine, BenchmarkValidation) {
     RiskEngine engine;
-    engine.state().setLastPrice(1, 5000000000000LL);
+    engine.state().setLastPrice(BINANCE_VENUE, 1, 5000000000000LL);
 
     char buf[256];
     makeOrder(buf, sizeof(buf), 1, 1, Side::Value::Buy, 5000000000000LL, 100000000ULL);

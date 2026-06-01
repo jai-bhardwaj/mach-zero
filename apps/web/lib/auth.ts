@@ -101,6 +101,38 @@ const providers = [
     : []),
 ];
 
+// Production safety: NEXTAUTH_SECRET must be present and not the dev default
+// before we hand it to NextAuth. NextAuth otherwise silently generates a
+// per-process secret in development, which is a footgun if NODE_ENV slips
+// in production. Fail fast at module load instead.
+function requireSecret(): string {
+  const secret = process.env.NEXTAUTH_SECRET;
+  const isProd = process.env.NODE_ENV === "production";
+  if (!secret || secret.length < 32) {
+    if (isProd) {
+      throw new Error(
+        "NEXTAUTH_SECRET must be set to a value of at least 32 characters in production. " +
+          "Generate with: openssl rand -base64 32"
+      );
+    }
+    // Dev: allow short or missing secret but log loudly so it's never confused
+    // with a real environment.
+    console.warn(
+      "[auth] NEXTAUTH_SECRET is missing or short; using a dev-only fallback. " +
+        "Production deploys MUST set NEXTAUTH_SECRET."
+    );
+    return secret || "mach-zero-dev-only-not-for-production";
+  }
+  // Sentinel against the leaked dev-compose value being used in production.
+  if (isProd && secret === "mach-zero-production-secret") {
+    throw new Error(
+      "NEXTAUTH_SECRET is set to the dev-compose default value. " +
+        "Generate a real secret with: openssl rand -base64 32"
+    );
+  }
+  return secret;
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   adapter: authAdapter,
@@ -141,7 +173,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         try {
           const localUser = await prisma.user.findUnique({
             where: { email: token.email },
-            include: { tenant: true },
+            include: {
+              tenant: { include: { mapping: true } },
+            },
           });
           if (localUser) {
             token.sub = localUser.id;
@@ -149,6 +183,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.tenantId = localUser.tenantId;
             token.tenantName = localUser.tenant.name;
             token.onboardingComplete = localUser.onboardingComplete;
+            // engineId is the uint32 the C++ engine uses on the SBE wire.
+            // undefined during the rollout window when TenantMapping rows
+            // may lag tenant creation; callers treat undefined as "feature
+            // off" or "skip engine publish".
+            token.engineId = localUser.tenant.mapping?.engineId;
           }
         } catch {
           // DB unavailable — use cached token values
@@ -165,9 +204,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         u.tenantId = token.tenantId;
         u.tenantName = token.tenantName;
         u.onboardingComplete = token.onboardingComplete;
+        u.engineId = token.engineId;
       }
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: requireSecret(),
 });

@@ -9,6 +9,7 @@ vi.mock("@/lib/require-auth", () => ({
     role: "ADMIN",
     tenantId: "tenant-1",
     tenantName: "Test Tenant",
+    engineId: 1,
   }),
   isAuthError: vi.fn().mockReturnValue(false),
 }));
@@ -21,6 +22,9 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn().mockResolvedValue({}),
     },
   },
 }));

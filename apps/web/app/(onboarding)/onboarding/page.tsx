@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 
+export const metadata = { title: "Get Started | Mach-Zero" };
+
 export default async function OnboardingPage() {
   const session = await requirePageAuth();
 

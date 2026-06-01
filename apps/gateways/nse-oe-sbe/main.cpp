@@ -2,6 +2,7 @@
 #include <common/ipc/AeronSubscriber.h>
 #include <common/ipc/AeronPublisher.h>
 #include <common/ipc/ChannelConfig.h>
+#include <common/ipc/SchemaValidator.h>
 #include <common/logger/Logger.h>
 #include <mach_zero_market_data/MessageHeader.h>
 #include <mach_zero_market_data/OrderRequest.h>
@@ -46,6 +47,7 @@ int main() {
                 aeron::util::index_t length, aeron::Header& /*header*/) {
                 char* data = reinterpret_cast<char*>(buffer.buffer()) + offset;
                 MessageHeader hdr(data, length, MessageHeader::sbeSchemaVersion());
+                if (!mach_zero::ipc::isValidSchema(hdr)) return;
 
                 if (hdr.templateId() == OrderRequest::sbeTemplateId()) {
                     OrderRequest req;

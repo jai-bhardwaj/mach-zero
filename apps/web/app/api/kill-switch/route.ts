@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
 import { evaluateAlerts } from "@/lib/alert-evaluator";
 
 const KILL_SWITCH_URL = process.env.KILL_SWITCH_URL;
+// Feature flag controlling whether the web sends engineId in the body
+// of /kill-switch/* HTTP calls to the C++ risk-monitor. Flip to "true"
+// once the engine is deployed with ACCEPT_LEGACY_KILLSWITCH=1 so no
+// call is ever missing tenantId thereafter.
+const SEND_ENGINE_ID = process.env.ENGINE_SCHEMA_V3 === "true";
 
 // In-memory kill switch state (until C++ risk monitor exposes an HTTP API)
 let killSwitchActive = false;
+
+// The C++ risk monitor returns killSwitch as a boolean on GET /status but as the
+// strings "activated"/"deactivated" on POST /kill-switch/on|off. Normalize to a
+// real boolean at this boundary so clients get the typed KillSwitchStatus
+// contract and never have to coerce a truthy string (e.g. "deactivated").
+function normalizeKillSwitch(raw: unknown): boolean {
+  return raw === true || raw === "activated" || raw === "on";
+}
 
 // GET /api/kill-switch - proxy to C++ risk monitor or return local state
 export async function GET() {
@@ -18,7 +32,11 @@ export async function GET() {
         cache: "no-store",
       });
       const data = await res.json();
-      return NextResponse.json(data);
+      return NextResponse.json({
+        ...data,
+        killSwitch: normalizeKillSwitch(data.killSwitch),
+        source: "monitor",
+      });
     } catch {
       // Fall through to local state
     }
@@ -32,10 +50,10 @@ export async function GET() {
 
 // POST /api/kill-switch - proxy toggle to C++ risk monitor or toggle local state
 export async function POST(request: NextRequest) {
-  const session = await requireAuth("SUPER_ADMIN", "ADMIN");
+  const session = await requireAuth("SUPER_ADMIN", "ADMIN", "RISK_MANAGER");
   if (isAuthError(session)) return session;
 
-  const body = await request.json();
+  const body = await request.json().catch(() => ({}));
   const state = body.state as "on" | "off";
 
   if (state !== "on" && state !== "off") {
@@ -45,31 +63,89 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Decide which engineId the kill applies to:
+  // - SUPER_ADMIN may set tenantId=0 (global kill) or any specific tenant.
+  // - ADMIN / RISK_MANAGER are forced to their own tenant regardless of
+  //   what the caller supplies in the body.
+  let targetEngineId: number | undefined = session.engineId;
+  if (session.role === "SUPER_ADMIN" && typeof body.tenantId === "number") {
+    targetEngineId = body.tenantId;
+  }
+
   if (KILL_SWITCH_URL) {
     try {
+      const proxyBody: Record<string, unknown> = {};
+      if (SEND_ENGINE_ID && typeof targetEngineId === "number") {
+        proxyBody.tenantId = targetEngineId;
+      }
       const res = await fetch(`${KILL_SWITCH_URL}/kill-switch/${state}`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proxyBody),
       });
       const data = await res.json();
-      return NextResponse.json(data);
+
+      // Audit log — target tenant is the one whose trading is halted;
+      // acting user may be a super-admin from a different tenant.
+      const targetTenantId =
+        targetEngineId === 0
+          ? session.tenantId   // global kill; acting user's tenant
+          : await resolveTenantUuidForEngineId(targetEngineId, session.tenantId);
+      await prisma.auditLog
+        .create({
+          data: {
+            tenantId: targetTenantId,
+            userId: session.userId,
+            action: state === "on" ? "KILL_SWITCH_ON" : "KILL_SWITCH_OFF",
+            details: {
+              actingEngineId: session.engineId,
+              targetEngineId,
+              actingRole: session.role,
+              global: targetEngineId === 0,
+            },
+          },
+        })
+        .catch(() => {});   // Audit-log failure must not block the kill
+
+      if (state === "on") {
+        evaluateAlerts({
+          type: "KILL_SWITCH",
+          tenantId: targetTenantId,
+          data: {
+            activatedBy: session.userId,
+            email: session.email,
+            targetEngineId,
+          },
+        }).catch(() => {});
+      }
+
+      return NextResponse.json({
+        ...data,
+        killSwitch: normalizeKillSwitch(data.killSwitch),
+        source: "monitor",
+      });
     } catch {
       // Fall through to local state
     }
   }
 
   killSwitchActive = state === "on";
-
-  // Trigger alerts on kill switch activation
-  if (state === "on") {
-    evaluateAlerts({
-      type: "KILL_SWITCH",
-      tenantId: session.tenantId,
-      data: { activatedBy: session.userId, email: session.email },
-    }).catch(() => {}); // Fire and forget
-  }
-
   return NextResponse.json({
     killSwitch: killSwitchActive,
     source: KILL_SWITCH_URL ? "fallback" : "local",
   });
+}
+
+// Look up the Tenant UUID corresponding to an engineId. Used so audit
+// logs are scoped to the *target* tenant even when a SUPER_ADMIN acts
+// cross-tenant.
+async function resolveTenantUuidForEngineId(
+  engineId: number | undefined,
+  fallback: string
+): Promise<string> {
+  if (typeof engineId !== "number") return fallback;
+  const row = await prisma.tenantMapping
+    .findUnique({ where: { engineId }, select: { tenantId: true } })
+    .catch(() => null);
+  return row?.tenantId ?? fallback;
 }

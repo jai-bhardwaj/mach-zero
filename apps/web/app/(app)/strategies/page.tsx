@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { StrategyConfig, StrategyStatus, CapitalPool, TradingMode, SquareOffResult } from "@/types";
 import { usePositions } from "@/hooks/usePositions";
 import { useTradingMode } from "@/contexts/TradingModeContext";
@@ -24,7 +25,6 @@ export default function StrategiesPage() {
   const [squareOffAllConfirm, setSquareOffAllConfirm] = useState(false);
   const [squareOffAllLoading, setSquareOffAllLoading] = useState(false);
   const [squareOffAllResult, setSquareOffAllResult] = useState<SquareOffResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const { symbols } = usePositions();
   const { refresh: refreshMode } = useTradingMode();
 
@@ -58,13 +58,6 @@ export default function StrategiesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-dismiss error after 5 seconds
-  useEffect(() => {
-    if (!error) return;
-    const t = setTimeout(() => setError(null), 5000);
-    return () => clearTimeout(t);
-  }, [error]);
-
   const handleStatusChange = async (
     id: string,
     status: StrategyStatus,
@@ -85,18 +78,19 @@ export default function StrategiesPage() {
         });
         if (!retryRes.ok) {
           const err = await retryRes.json().catch(() => ({ error: "Unknown error" }));
-          setError(err.error ?? "Failed to start strategy in LIVE mode");
+          toast.error(err.error ?? "Failed to start strategy in LIVE mode");
           return;
         }
       } else if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        setError(err.error ?? "Failed to change strategy status");
+        toast.error(err.error ?? "Failed to change strategy status");
         return;
       }
     } catch {
-      setError("Failed to change strategy status. Please try again.");
+      toast.error("Failed to change strategy status. Please try again.");
       return;
     }
+    toast.success(`Strategy ${status.toLowerCase()}`);
     fetchAll();
     refreshMode();
   };
@@ -119,13 +113,14 @@ export default function StrategiesPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        setError(err.error ?? "Failed to save strategy configuration");
+        toast.error(err.error ?? "Failed to save strategy configuration");
         return;
       }
     } catch {
-      setError("Failed to save strategy configuration. Please try again.");
+      toast.error("Failed to save strategy configuration. Please try again.");
       return;
     }
+    toast.success("Strategy saved");
     setEditing(null);
     fetchAll();
   };
@@ -139,13 +134,14 @@ export default function StrategiesPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        setError(err.error ?? "Failed to create strategy");
+        toast.error(err.error ?? "Failed to create strategy");
         return;
       }
     } catch {
-      setError("Failed to create strategy. Please try again.");
+      toast.error("Failed to create strategy. Please try again.");
       return;
     }
+    toast.success("Strategy created");
     setCreating(false);
     fetchAll();
   };
@@ -155,13 +151,14 @@ export default function StrategiesPage() {
       const res = await fetch(`/api/strategies?id=${id}`, { method: "DELETE" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        setError(err.error ?? "Failed to delete strategy");
+        toast.error(err.error ?? "Failed to delete strategy");
         return;
       }
     } catch {
-      setError("Failed to delete strategy. Please try again.");
+      toast.error("Failed to delete strategy. Please try again.");
       return;
     }
+    toast.success("Strategy deleted");
     fetchAll();
     refreshMode();
   };
@@ -175,10 +172,12 @@ export default function StrategiesPage() {
       });
       const result = await res.json();
       if (!result.success) {
-        setError("Square-off failed for this strategy");
+        toast.error("Square-off failed for this strategy");
+      } else {
+        toast.success("Strategy squared off");
       }
     } catch {
-      setError("Square-off request failed. Please try again.");
+      toast.error("Square-off request failed. Please try again.");
     }
     fetchAll();
     refreshMode();
@@ -228,18 +227,19 @@ export default function StrategiesPage() {
         });
         if (!retryRes.ok) {
           const err = await retryRes.json().catch(() => ({ error: "Unknown error" }));
-          setError(err.error ?? "Failed to switch trading mode");
+          toast.error(err.error ?? "Failed to switch trading mode");
           return;
         }
       } else if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        setError(err.error ?? "Failed to switch trading mode");
+        toast.error(err.error ?? "Failed to switch trading mode");
         return;
       }
     } catch {
-      setError("Failed to switch trading mode. Please try again.");
+      toast.error("Failed to switch trading mode. Please try again.");
       return;
     }
+    toast.success(`Switched to ${targetMode}`);
     fetchAll();
     refreshMode();
   };
@@ -265,19 +265,6 @@ export default function StrategiesPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Error Banner */}
-      {error && (
-        <div className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-900/20 px-3 py-2.5 text-sm text-red-400 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3">
-          <span className="text-xs sm:text-sm">{error}</span>
-          <button
-            onClick={() => setError(null)}
-            className="text-xs text-red-400/70 hover:text-red-400"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
       {/* Header */}
       <PageHeader
         title="Strategies"

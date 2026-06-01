@@ -87,6 +87,47 @@ TEST(StrategyEngine, AddStrategyAndProcessTrade) {
     EXPECT_TRUE(orders.empty());
 }
 
+TEST(StrategyEngine, ReplaceStrategiesSwapsTheActiveSet) {
+    StrategyEngine engine;
+
+    // Start with one strategy.
+    SimpleSpreadStrategy::Config a;
+    a.symbolId = 1;
+    a.spreadOffset = 100000000LL;
+    a.orderQuantity = 100000000ULL;
+    engine.addStrategy(std::make_shared<SimpleSpreadStrategy>(a));
+    EXPECT_EQ(engine.strategyCount(), 1u);
+
+    // Hot-reload to a different set (two strategies on different symbols).
+    std::vector<std::shared_ptr<Strategy>> next;
+    SimpleSpreadStrategy::Config b;
+    b.symbolId = 2;
+    b.spreadOffset = 100000000LL;
+    b.orderQuantity = 100000000ULL;
+    next.push_back(std::make_shared<SimpleSpreadStrategy>(b));
+    MomentumStrategy::Config m;
+    m.symbolId = 2;
+    m.windowSize = 3;
+    m.threshold = 100000000LL;
+    m.orderQuantity = 100000000ULL;
+    next.push_back(std::make_shared<MomentumStrategy>(m));
+
+    engine.replaceStrategies(std::move(next));
+    EXPECT_EQ(engine.strategyCount(), 2u);
+
+    // The replaced strategies are wired (order emitter set): feed symbol-2
+    // quotes and confirm the new spread strategy emits, proving the swap took
+    // effect and the old symbol-1 strategy is gone.
+    char buf[256];
+    size_t tlen = encodeTrade(buf, sizeof(buf), 2, 5000000000000LL, 100000000ULL);
+    engine.processMarketData(buf, tlen);
+    size_t qlen = encodeQuote(buf, sizeof(buf), 2, 4999000000000LL, 100000000ULL,
+                              5001000000000LL, 100000000ULL);
+    engine.processMarketData(buf, qlen);
+    auto orders = engine.drainOrders();
+    EXPECT_FALSE(orders.empty());
+}
+
 TEST(StrategyEngine, SpreadStrategyEmitsOnQuote) {
     StrategyEngine engine;
 
@@ -298,7 +339,7 @@ TEST(E2EPipeline, TradeToStrategyToRisk) {
     stratEngine.addStrategy(std::make_shared<SimpleSpreadStrategy>(cfg));
 
     mach_zero::risk::RiskEngine riskEngine;
-    riskEngine.state().setLastPrice(1, 5000000000000LL);
+    riskEngine.state().setLastPrice(static_cast<uint8_t>(Venue::Value::Binance), 1, 5000000000000LL);
 
     // Feed market data (quote)
     char buf[256];

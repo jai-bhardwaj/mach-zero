@@ -1,6 +1,12 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { VisibilityState } from "@tanstack/react-table";
 import type { Trade } from "@/types";
@@ -37,13 +43,16 @@ const SIDE_OPTIONS = [
   { label: "Sell", value: "2" },
 ];
 
+// Values are the lowercase status strings persistence writes to QuestDB; the
+// previous UPPERCASE values never matched (case-sensitive) and omitted the most
+// common statuses (validated, partial), so the Status filter returned 0 rows.
 const STATUS_OPTIONS = [
-  { label: "New", value: "NEW" },
-  { label: "Acked", value: "ACKED" },
-  { label: "Filled", value: "FILLED" },
-  { label: "Partially Filled", value: "PARTIALLY_FILLED" },
-  { label: "Rejected", value: "REJECTED" },
-  { label: "Cancelled", value: "CANCELLED" },
+  { label: "Validated", value: "validated" },
+  { label: "New", value: "new" },
+  { label: "Partially Filled", value: "partial" },
+  { label: "Filled", value: "filled" },
+  { label: "Rejected", value: "rejected" },
+  { label: "Cancelled", value: "cancelled" },
 ];
 
 const MODE_OPTIONS = [
@@ -76,8 +85,9 @@ const RISK_FILTERS: FilterConfig[] = [
 // Column labels for column toggle dropdowns
 const TRADE_COLUMN_LABELS: Record<string, string> = {
   timestamp: "Time",
-  symbol_id: "Symbol",
-  venue: "Venue",
+  account_name: "Account",
+  symbol_id: "Market",
+  strategy_name: "Strategy",
   side: "Side",
   price: "Price",
   quantity: "Quantity",
@@ -87,7 +97,8 @@ const TRADE_COLUMN_LABELS: Record<string, string> = {
 const ORDER_COLUMN_LABELS: Record<string, string> = {
   timestamp: "Time",
   order_id: "Order ID",
-  symbol_id: "Symbol",
+  symbol_id: "Market",
+  strategy_name: "Strategy",
   side: "Side",
   price: "Price",
   quantity: "Quantity",
@@ -99,6 +110,7 @@ const RISK_COLUMN_LABELS: Record<string, string> = {
   timestamp: "Time",
   order_id: "Order ID",
   symbol_id: "Symbol",
+  strategy_name: "Strategy",
   reason: "Reason",
   trading_mode: "Mode",
 };
@@ -106,8 +118,9 @@ const RISK_COLUMN_LABELS: Record<string, string> = {
 // Export column definitions for CSV export
 const TRADE_EXPORT_COLUMNS = [
   { key: "timestamp", label: "Time" },
-  { key: "symbol_id", label: "Symbol" },
-  { key: "venue", label: "Venue" },
+  { key: "account_name", label: "Account" },
+  { key: "symbol_id", label: "Market" },
+  { key: "strategy_name", label: "Strategy" },
   { key: "side", label: "Side" },
   { key: "price", label: "Price" },
   { key: "quantity", label: "Quantity" },
@@ -117,7 +130,8 @@ const TRADE_EXPORT_COLUMNS = [
 const ORDER_EXPORT_COLUMNS = [
   { key: "timestamp", label: "Time" },
   { key: "order_id", label: "Order ID" },
-  { key: "symbol_id", label: "Symbol" },
+  { key: "symbol_id", label: "Market" },
+  { key: "strategy_name", label: "Strategy" },
   { key: "side", label: "Side" },
   { key: "price", label: "Price" },
   { key: "quantity", label: "Quantity" },
@@ -129,6 +143,8 @@ const RISK_EXPORT_COLUMNS = [
   { key: "timestamp", label: "Time" },
   { key: "order_id", label: "Order ID" },
   { key: "symbol_id", label: "Symbol" },
+  { key: "strategy_name", label: "Strategy" },
+  { key: "account_name", label: "Account" },
   { key: "reason", label: "Reason" },
   { key: "trading_mode", label: "Mode" },
 ];
@@ -367,13 +383,13 @@ function TradesPageInner() {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {/* Header */}
       <PageHeader title="Trades & Orders" />
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList variant="line">
+      {/* Tabs — fill the viewport; the table area is the sole vertical scroller */}
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-1 min-h-0 flex-col">
+        <TabsList variant="line" className="shrink-0">
           <TabsTrigger value="trades">
             Trades
             <span className="text-[10px] text-muted-foreground ml-1">{tradeTotal.toLocaleString()}</span>
@@ -389,7 +405,7 @@ function TradesPageInner() {
         </TabsList>
 
         {/* Trades Tab */}
-        <TabsContent value="trades" className="space-y-3">
+        <TabsContent value="trades" className="min-h-0 flex flex-col gap-3">
           <NewTradesBanner count={newTradeCount} onRefresh={handleNewTradesRefresh} />
           <DataTableToolbar
             filters={TRADE_FILTERS}
@@ -446,7 +462,7 @@ function TradesPageInner() {
         </TabsContent>
 
         {/* Orders Tab */}
-        <TabsContent value="orders" className="space-y-3">
+        <TabsContent value="orders" className="min-h-0 flex flex-col gap-3">
           <DataTableToolbar
             filters={ORDER_FILTERS}
             values={orderParams.filters}
@@ -500,7 +516,7 @@ function TradesPageInner() {
         </TabsContent>
 
         {/* Risk Events Tab */}
-        <TabsContent value="risk-events" className="space-y-3">
+        <TabsContent value="risk-events" className="min-h-0 flex flex-col gap-3">
           <DataTableToolbar
             filters={RISK_FILTERS}
             values={riskParams.filters}
@@ -579,10 +595,43 @@ function TradesPageSkeleton() {
   );
 }
 
+// Render children only after the component has mounted on the client, showing
+// the fallback for both the server render and the first client render so the
+// two match exactly. The trades view is driven entirely by URL search params
+// (tabs/filters/sorting) plus live SWR + WebSocket data — none of which exist
+// at prerender — so reading useSearchParams() inside it makes the server emit
+// the skeleton while the client renders content, a hydration mismatch that
+// regenerated the whole tree on every load. Gating on mount eliminates it
+// without giving up the skeleton loading UX.
+// useSyncExternalStore is the hydration-safe way to detect "are we past the
+// first client render": getServerSnapshot returns false (used for SSR and the
+// hydration pass, so server and client agree), then getSnapshot returns true
+// for every render thereafter. No setState-in-effect, no cascading renders.
+const subscribeNoop = () => () => {};
+function useHydrated() {
+  return useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+}
+
+function ClientOnly({
+  fallback,
+  children,
+}: {
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return <>{useHydrated() ? children : fallback}</>;
+}
+
 export default function TradesPage() {
   return (
     <Suspense fallback={<TradesPageSkeleton />}>
-      <TradesPageInner />
+      <ClientOnly fallback={<TradesPageSkeleton />}>
+        <TradesPageInner />
+      </ClientOnly>
     </Suspense>
   );
 }

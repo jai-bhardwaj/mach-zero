@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import type { SquareOffResult } from "@/types";
 import { useSquareOff } from "@/hooks/useSquareOff";
 import { usePositions } from "@/hooks/usePositions";
@@ -25,6 +26,13 @@ export function SquareOffPanel() {
     setResult(data);
     setShowConfirm(false);
     setConfirmText("");
+    if (data.success) {
+      toast.success(
+        `Square-off complete — ${data.symbolsSquaredOff} symbols, ${data.strategiesPaused} strategies paused`
+      );
+    } else {
+      toast.error("Square-off failed");
+    }
   };
 
   const handleCancel = () => {
@@ -122,7 +130,7 @@ export function SquareOffPanel() {
           <div className="space-y-3">
             <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3">
               <p className="text-sm font-semibold text-red-400 mb-2">
-                ⚠ This will close ALL positions, pause ALL strategies, and
+                This will close ALL positions, pause ALL strategies, and
                 activate the kill switch.
               </p>
               <p className="text-xs text-muted-foreground mb-3">

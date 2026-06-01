@@ -17,6 +17,8 @@ namespace mach_zero::strategy {
 class MomentumStrategy : public Strategy {
 public:
     struct Config {
+        uint32_t tenantId = 1;        // Default tenant for single-tenant legacy deploys
+        uint64_t strategyId = 0;      // Engine strategy id (joins to Postgres for name/account/mode)
         uint64_t symbolId = 1;
         size_t windowSize = 20;       // Number of trades for VWAP
         int64_t threshold = 50000000LL; // 0.5 in fixed-point deviation threshold
@@ -25,6 +27,8 @@ public:
     };
 
     explicit MomentumStrategy(const Config& config) : config_(config) {}
+
+    uint32_t tenantId() const override { return config_.tenantId; }
 
     void onTrade(const Trade& trade) override {
         if (trade.symbolId() != config_.symbolId) return;
@@ -86,7 +90,9 @@ private:
             .venue(config_.venue)
             .timestamp(static_cast<uint64_t>(
                 std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count()));
+                    std::chrono::system_clock::now().time_since_epoch()).count()))
+            .tenantId(config_.tenantId)
+            .strategyId(config_.strategyId);
         emitOrder(buf, OrderRequest::sbeBlockAndHeaderLength());
     }
 

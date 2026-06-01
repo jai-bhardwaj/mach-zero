@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, isAuthError } from "@/lib/require-auth";
 import { VENUE_SEGMENTS, type Venue } from "@/types";
 import { encryptCredentials } from "@/lib/crypto";
+import { track } from "@/lib/analytics";
 import type { Prisma } from "@prisma/client";
 
 const VALID_VENUES: Venue[] = ["Binance", "NSE"];
@@ -77,6 +78,17 @@ export async function POST(request: NextRequest) {
         venue,
         segments,
         ...(config ? { config } : {}),
+      },
+    });
+
+    track({
+      userId: session.userId,
+      event: "account_connected",
+      tenantId: user.tenantId,
+      properties: {
+        venue,
+        segments,
+        hasCredentials: !!config,
       },
     });
 
