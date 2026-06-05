@@ -9,6 +9,7 @@ add_executable(mach_zero_tests
     test_tenant_isolation.cpp
     test_strategy_engine.cpp
     test_strategy_loader.cpp
+    test_order_translator.cpp
     test_questdb_sink.cpp
     test_shared_memory.cpp
     test_metrics.cpp
@@ -28,6 +29,7 @@ target_link_libraries(mach_zero_tests PRIVATE
 
 target_include_directories(mach_zero_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/apps/gateways/binance-ws
+    ${CMAKE_SOURCE_DIR}/apps/gateways/binance-rest
     ${CMAKE_SOURCE_DIR}/apps/gateways/nse-oe-sbe
     ${CMAKE_SOURCE_DIR}/core/src
     ${CMAKE_SOURCE_DIR}

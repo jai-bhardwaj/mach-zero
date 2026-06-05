@@ -53,18 +53,25 @@ public:
 
     bool isSimulated() const { return simulated_; }
 
-    // Place a new order with per-request credentials.
+    // Place a new order with per-request credentials. quantity/price are exact
+    // decimal strings (see OrderTranslator::fixedToString) — never doubles.
     RestResponse placeOrder(const OrderCredentials& creds,
                             const std::string& symbol, const std::string& side,
-                            const std::string& type, double quantity, double price) {
+                            const std::string& type, const std::string& quantity,
+                            const std::string& price) {
         std::ostringstream params;
         params << "symbol=" << symbol
                << "&side=" << side
                << "&type=" << type
-               << "&quantity=" << quantity
-               << "&price=" << price
-               << "&timeInForce=GTC"
-               << "&timestamp=" << currentTimestampMs();
+               << "&quantity=" << quantity;
+        // MARKET orders must NOT carry price or timeInForce — Binance rejects
+        // the request (-1106 "Param 'price'/'timeInForce' sent when not
+        // required") otherwise. Only limit-style orders take them.
+        if (type != "MARKET") {
+            params << "&price=" << price
+                   << "&timeInForce=GTC";
+        }
+        params << "&timestamp=" << currentTimestampMs();
 
         if (simulated_) return simulatedPost(params.str());
         return httpRequest(creds, "POST", "/api/v3/order", params.str());

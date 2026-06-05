@@ -33,26 +33,34 @@ public:
     void onTrade(const Trade& trade) override {
         if (trade.symbolId() != config_.symbolId) return;
 
-        // Add to VWAP window
+        // Evaluate the signal against the PRIOR window's VWAP — i.e. excluding
+        // the current trade. A prior version pushed the current trade into the
+        // window first and then computed the VWAP, so the benchmark contained
+        // the very price being tested (lookahead/self-contamination): it pulled
+        // the VWAP toward the current price and damped the deviation, so live
+        // and backtest signals were systematically wrong. Compute first, roll
+        // the window after.
+        if (trades_.size() >= config_.windowSize) {
+            int64_t vwap = calculateVWAP();
+            int64_t deviation = trade.price() - vwap;
+
+            // Buy signal: price significantly below VWAP
+            if (deviation < -config_.threshold && !hasPosition_) {
+                emitOrderRequest(Side::Value::Buy, trade.price(), config_.orderQuantity);
+                hasPosition_ = true;
+            }
+            // Sell signal: price significantly above VWAP
+            else if (deviation > config_.threshold && hasPosition_) {
+                emitOrderRequest(Side::Value::Sell, trade.price(), config_.orderQuantity);
+                hasPosition_ = false;
+            }
+        }
+
+        // Roll the window AFTER computing the signal so it holds the last
+        // windowSize trades strictly prior to the next one.
         trades_.push_back({trade.price(), trade.quantity()});
         if (trades_.size() > config_.windowSize) {
             trades_.pop_front();
-        }
-
-        if (trades_.size() < config_.windowSize) return;
-
-        int64_t vwap = calculateVWAP();
-        int64_t deviation = trade.price() - vwap;
-
-        // Buy signal: price significantly below VWAP
-        if (deviation < -config_.threshold && !hasPosition_) {
-            emitOrderRequest(Side::Value::Buy, trade.price(), config_.orderQuantity);
-            hasPosition_ = true;
-        }
-        // Sell signal: price significantly above VWAP
-        else if (deviation > config_.threshold && hasPosition_) {
-            emitOrderRequest(Side::Value::Sell, trade.price(), config_.orderQuantity);
-            hasPosition_ = false;
         }
     }
 
@@ -79,8 +87,10 @@ private:
         char buf[256];
         OrderRequest req;
         req.wrapAndApplyHeader(buf, 0, sizeof(buf));
-        req.orderId(nextOrderId_++)
-            .clientOrderId(nextOrderId_)
+        // Same id for orderId and clientOrderId (see SimpleSpreadStrategy).
+        const uint64_t oid = nextOrderId_++;
+        req.orderId(oid)
+            .clientOrderId(oid)
             .symbolId(config_.symbolId)
             .side(side)
             .price(price)

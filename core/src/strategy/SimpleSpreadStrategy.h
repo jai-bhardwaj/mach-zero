@@ -64,8 +64,13 @@ private:
         char buf[256];
         OrderRequest req;
         req.wrapAndApplyHeader(buf, 0, sizeof(buf));
-        req.orderId(nextOrderId_++)
-            .clientOrderId(nextOrderId_)
+        // orderId and clientOrderId must be the SAME id for this order. The
+        // prior `orderId(nextOrderId_++).clientOrderId(nextOrderId_)` set
+        // clientOrderId to N+1, so each order's clientOrderId aliased the next
+        // order's orderId — breaking ACK/reject matching. Capture the id once.
+        const uint64_t oid = nextOrderId_++;
+        req.orderId(oid)
+            .clientOrderId(oid)
             .symbolId(config_.symbolId)
             .side(side)
             .price(price)

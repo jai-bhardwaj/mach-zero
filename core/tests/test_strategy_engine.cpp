@@ -324,6 +324,83 @@ TEST(MomentumStrategy, BuySignalOnDip) {
                       hdr.blockLength(), hdr.version(), emitted[0].size());
     EXPECT_EQ(req.side(), Side::Value::Buy);
     EXPECT_EQ(req.symbolId(), 1u);
+    // Regression: orderId and clientOrderId must be the SAME id (a prior bug
+    // set clientOrderId = orderId + 1, aliasing the next order's id).
+    EXPECT_EQ(req.orderId(), req.clientOrderId());
+}
+
+// Regression: the signal must be computed against the PRIOR window's VWAP,
+// excluding the current trade (no lookahead/self-contamination). With a full
+// stable window at 50000 and threshold 7.0, a trade at 49992 deviates by
+// exactly -8.0 from the prior VWAP (50000) → BUY. If the current trade were
+// (wrongly) folded into the VWAP first, the VWAP would be ~49997.33, the
+// deviation only -5.33, and NO order would fire. So this asserts no-lookahead.
+TEST(MomentumStrategy, SignalExcludesCurrentTradeFromVwap) {
+    MomentumStrategy::Config cfg;
+    cfg.symbolId = 1;
+    cfg.windowSize = 3;
+    cfg.threshold = 700000000LL; // 7.0
+    cfg.orderQuantity = 100000000ULL;
+
+    auto strategy = std::make_shared<MomentumStrategy>(cfg);
+    std::vector<std::string> emitted;
+    strategy->setOrderEmitter([&](const char* buf, size_t len) {
+        emitted.push_back({buf, len});
+    });
+
+    char buf[256];
+    Trade trade;
+    for (int i = 0; i < 3; ++i) {
+        trade.wrapAndApplyHeader(buf, 0, sizeof(buf));
+        trade.symbolId(1).price(5000000000000LL).quantity(100000000ULL)
+             .side(Side::Value::Buy).venue(Venue::Binance).timestamp(1000000000ULL + i);
+        strategy->onTrade(trade);
+    }
+    EXPECT_TRUE(emitted.empty());
+
+    // -8.0 vs the prior VWAP of 50000 → fires only without lookahead.
+    trade.wrapAndApplyHeader(buf, 0, sizeof(buf));
+    trade.symbolId(1).price(4999200000000LL).quantity(100000000ULL)
+         .side(Side::Value::Buy).venue(Venue::Binance).timestamp(1000000004ULL);
+    strategy->onTrade(trade);
+    ASSERT_EQ(emitted.size(), 1u);
+
+    MessageHeader hdr(const_cast<char*>(emitted[0].data()), emitted[0].size(),
+                      MessageHeader::sbeSchemaVersion());
+    OrderRequest req;
+    req.wrapForDecode(const_cast<char*>(emitted[0].data()), MessageHeader::encodedLength(),
+                      hdr.blockLength(), hdr.version(), emitted[0].size());
+    EXPECT_EQ(req.side(), Side::Value::Buy);
+    EXPECT_EQ(req.orderId(), req.clientOrderId());
+}
+
+// Regression: SimpleSpreadStrategy must emit matching orderId/clientOrderId.
+TEST(SimpleSpreadStrategy, OrderAndClientIdsMatch) {
+    SimpleSpreadStrategy::Config cfg;
+    cfg.symbolId = 1;
+    cfg.spreadOffset = 100000000LL;
+    cfg.orderQuantity = 100000000ULL;
+    auto strategy = std::make_shared<SimpleSpreadStrategy>(cfg);
+    std::vector<std::string> emitted;
+    strategy->setOrderEmitter([&](const char* b, size_t l) { emitted.push_back({b, l}); });
+
+    char buf[256];
+    size_t len = encodeQuote(buf, sizeof(buf), 1,
+                             5000000000000LL, 1000000000ULL,
+                             5000200000000LL, 1000000000ULL);
+    Quote q;
+    MessageHeader qh(buf, len, MessageHeader::sbeSchemaVersion());
+    q.wrapForDecode(buf, MessageHeader::encodedLength(), qh.blockLength(), qh.version(), len);
+    strategy->onQuote(q);
+
+    ASSERT_GE(emitted.size(), 1u);
+    for (const auto& e : emitted) {
+        MessageHeader hdr(const_cast<char*>(e.data()), e.size(), MessageHeader::sbeSchemaVersion());
+        OrderRequest req;
+        req.wrapForDecode(const_cast<char*>(e.data()), MessageHeader::encodedLength(),
+                          hdr.blockLength(), hdr.version(), e.size());
+        EXPECT_EQ(req.orderId(), req.clientOrderId());
+    }
 }
 
 // --- End-to-End Pipeline Test ---

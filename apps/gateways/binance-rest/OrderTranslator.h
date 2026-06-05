@@ -21,9 +21,37 @@ public:
         std::string symbol;
         std::string side;
         std::string type;
-        double quantity;
-        double price;
+        // Quantity/price are kept as exact decimal STRINGS, formatted directly
+        // from the int64 fixed-point values. Going through double (the prior
+        // `double(req.quantity())/1e8`) drifts the last digits and can trip
+        // Binance's LOT_SIZE / PRICE_FILTER precision checks (silent reject).
+        std::string quantity;
+        std::string price;
     };
+
+    // Format a fixed-point int64 (8 decimals, 1.0 == 1e8) as an exact decimal
+    // string with no floating-point step. Trailing fractional zeros are trimmed
+    // (Binance accepts fewer decimals; it rejects MORE precision than allowed).
+    static std::string fixedToString(int64_t v) {
+        const bool neg = v < 0;
+        // Safe magnitude even for INT64_MIN (avoids UB of -INT64_MIN).
+        uint64_t a = neg ? (~static_cast<uint64_t>(v) + 1ULL)
+                         : static_cast<uint64_t>(v);
+        uint64_t intPart = a / 100000000ULL;
+        uint64_t frac = a % 100000000ULL;
+        std::string s;
+        if (neg) s.push_back('-');
+        s += std::to_string(intPart);
+        if (frac > 0) {
+            char fbuf[8];
+            for (int i = 7; i >= 0; --i) { fbuf[i] = static_cast<char>('0' + frac % 10); frac /= 10; }
+            int len = 8;
+            while (len > 0 && fbuf[len - 1] == '0') --len; // trim trailing zeros
+            s.push_back('.');
+            s.append(fbuf, static_cast<size_t>(len));
+        }
+        return s;
+    }
 
     // Convert internal OrderRequest to Binance REST parameters
     static BinanceOrderParams toRestParams(const OrderRequest& req, const std::string& symbolName) {
@@ -39,8 +67,8 @@ public:
             default: params.type = "LIMIT"; break;
         }
 
-        params.quantity = static_cast<double>(req.quantity()) / 1e8;
-        params.price = static_cast<double>(req.price()) / 1e8;
+        params.quantity = fixedToString(static_cast<int64_t>(req.quantity()));
+        params.price = fixedToString(req.price());
         return params;
     }
 
