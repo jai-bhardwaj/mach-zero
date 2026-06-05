@@ -143,8 +143,9 @@ private:
            .timestamp(ts)
            .tenantId(tenantId);
 
-        auto pos = orderPub_.publish(buf, OrderRequest::sbeBlockAndHeaderLength());
-        return pos >= 0;  // Positive = success, negative = back-pressure
+        // Square-off is a safety action (flattening positions); retry transient
+        // Aeron back-pressure rather than spuriously failing on a term rotation.
+        return orderPub_.publishReliable(buf, OrderRequest::sbeBlockAndHeaderLength());
     }
 
     const SharedMemoryWriter& shm_;

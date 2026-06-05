@@ -232,11 +232,21 @@ int main() {
 
             auto result = riskEngine.validate(req);
             if (result.passed) {
-                validatedPublisher.publish(orderBuf.data(), orderBuf.size());
+                // publishReliable retries transient Aeron back-pressure so a
+                // validated order is never silently dropped on its way to the
+                // venue. A false return is a genuine delivery failure — log it
+                // loudly rather than letting the strategy believe the order is
+                // live against an empty book.
+                if (!validatedPublisher.publishReliable(orderBuf.data(), orderBuf.size())) {
+                    MZ_ERROR("CRITICAL: validated order undeliverable to venue stream "
+                             "(Aeron back-pressure exhausted) — order NOT sent");
+                }
             } else {
                 size_t rejectLen = riskEngine.createReject(req, result.reason,
                                                            rejectBuf, sizeof(rejectBuf));
-                rejectPublisher.publish(rejectBuf, rejectLen);
+                if (!rejectPublisher.publishReliable(rejectBuf, rejectLen)) {
+                    MZ_ERROR("CRITICAL: order reject undeliverable (Aeron back-pressure)");
+                }
             }
         }
 

@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <stdexcept>
+#include <thread>
 
 namespace mach_zero::ipc {
 
@@ -42,6 +43,40 @@ public:
     // Convenience: publish from a char buffer
     std::int64_t publish(const char* buffer, std::size_t length) {
         return publish(reinterpret_cast<const uint8_t*>(buffer), length);
+    }
+
+    // Publish with bounded retry on TRANSIENT failures. offer() returns
+    // BACK_PRESSURED (-2) when the term buffer is momentarily full, ADMIN_ACTION
+    // (-3) during a term rotation, or NOT_CONNECTED (-1) before a subscriber
+    // attaches — all retryable, NOT drops. Fire-and-forget publish() silently
+    // loses the message on these, which for an ORDER means the order never
+    // reaches the venue while the strategy believes it was sent (position
+    // desync). Order-critical streams (validated orders, rejects, acks) must use
+    // this. Returns true if delivered; false on a terminal error
+    // (PUBLICATION_CLOSED / MAX_POSITION_EXCEEDED) or if the retry budget is
+    // exhausted — the caller MUST treat false as a critical, logged failure, not
+    // a silent drop. Market data may keep using publish() (a newer tick
+    // supersedes a dropped one).
+    bool publishReliable(const uint8_t* buffer, std::size_t length,
+                         int maxAttempts = 500000) {
+        aeron::concurrent::AtomicBuffer atomicBuf(
+            const_cast<uint8_t*>(buffer), length);
+        for (int attempt = 0; attempt < maxAttempts; ++attempt) {
+            const std::int64_t r = publication_->offer(
+                atomicBuf, 0, static_cast<aeron::util::index_t>(length));
+            if (r > 0) return true; // delivered (new stream position)
+            if (r == aeron::BACK_PRESSURED || r == aeron::ADMIN_ACTION ||
+                r == aeron::NOT_CONNECTED) {
+                std::this_thread::yield(); // transient — back off and retry
+                continue;
+            }
+            return false; // terminal: PUBLICATION_CLOSED / MAX_POSITION_EXCEEDED
+        }
+        return false; // retry budget exhausted (sustained back-pressure)
+    }
+
+    bool publishReliable(const char* buffer, std::size_t length) {
+        return publishReliable(reinterpret_cast<const uint8_t*>(buffer), length);
     }
 
     bool isConnected() const { return publication_->isConnected(); }
