@@ -151,3 +151,23 @@ TEST(QuestDBSink, FillLineIsTenantScopedWithStrategyId) {
     EXPECT_NE(line.find("symbol_id=1i"), std::string::npos);
     EXPECT_NE(line.find("side=2i"), std::string::npos);
 }
+
+// Regression: string fields (status/reason) must be ILP-escaped so a quote,
+// backslash, or newline can't corrupt the line and tear down the QuestDB writer.
+TEST(QuestDBSink, EscapesStringFieldSpecialChars) {
+    QuestDBSink::Config cfg;
+    cfg.batchSize = 1000;
+    QuestDBSink sink(cfg);
+    // status contains: a double-quote, a backslash, and a newline.
+    sink.writeOrder(1, 2, 3, 1, 1, 5000000000000LL, 100000000ULL,
+                    "bad\"st\\at\nus", 1000000000ULL);
+    std::string line(sink.bufferContents());
+
+    // " -> \" , \ -> \\ , \n -> space ; field stays a single quoted value.
+    EXPECT_NE(line.find("status=\"bad\\\"st\\\\at us\""), std::string::npos);
+    // Exactly one newline (the trailing line terminator) — the embedded \n in
+    // the status was neutralised, so the record wasn't split into two lines.
+    size_t newlines = 0;
+    for (char c : line) if (c == '\n') ++newlines;
+    EXPECT_EQ(newlines, 1u);
+}

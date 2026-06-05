@@ -155,7 +155,7 @@ public:
         buffer_.append(",quantity=");
         appendFixedPoint(static_cast<int64_t>(quantity));
         buffer_.append(",status=\"");
-        buffer_.append(status);
+        appendEscapedString(status);
         buffer_.append("\" ");
         buffer_.append(std::to_string(timestampNanos));
         buffer_.push_back('\n');
@@ -177,7 +177,7 @@ public:
         buffer_.append("i,order_id=");
         buffer_.append(std::to_string(orderId));
         buffer_.append("i,reason=\"");
-        buffer_.append(reason);
+        appendEscapedString(reason);
         buffer_.append("\" ");
         buffer_.append(std::to_string(timestampNanos));
         buffer_.push_back('\n');
@@ -250,6 +250,28 @@ private:
 
     void appendFixedPoint(int64_t value) {
         buffer_.append(formatFixedPoint(value));
+    }
+
+    // Append a string as the body of an ILP quoted field value, escaping the
+    // characters that would otherwise corrupt the line and tear down the QuestDB
+    // writer: a double-quote or backslash is backslash-escaped; CR/LF (which
+    // cannot appear inside an ILP field — they'd terminate the line) are
+    // replaced with a space. status/reason are engine-controlled enums today,
+    // but this keeps ingestion safe if a less-controlled string (e.g. a raw
+    // exchange error message) is ever written.
+    void appendEscapedString(const char* s) {
+        if (!s) return;
+        for (const char* p = s; *p; ++p) {
+            const char c = *p;
+            if (c == '"' || c == '\\') {
+                buffer_.push_back('\\');
+                buffer_.push_back(c);
+            } else if (c == '\n' || c == '\r') {
+                buffer_.push_back(' ');
+            } else {
+                buffer_.push_back(c);
+            }
+        }
     }
 
     void maybeFlush() {

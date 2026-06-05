@@ -58,6 +58,26 @@ TEST_F(AuditTest, WriteAndReadAuditLog) {
     EXPECT_EQ(payloads[2], "ACTIVATED");
 }
 
+// Durability: sync() succeeds while open, and per-record durable mode still
+// produces records that read back correctly (POSIX fd write path).
+TEST_F(AuditTest, DurableModeWritesReadableRecordsAndSyncs) {
+    {
+        AuditLogger logger(auditPath_, AuditLogger::Config{/*durableEachRecord=*/true});
+        ASSERT_TRUE(logger.open());
+        EXPECT_TRUE(logger.logText(AuditLogger::EventType::SystemEvent, "boot"));
+        EXPECT_TRUE(logger.sync());   // fsync checkpoint succeeds
+        EXPECT_TRUE(logger.logText(AuditLogger::EventType::KillSwitch, "ARMED"));
+        EXPECT_EQ(logger.recordCount(), 2u);
+    }
+    std::vector<std::string> payloads;
+    AuditLogger::readLog(auditPath_, [&](const AuditLogger::AuditRecord& r, const char* d) {
+        payloads.emplace_back(d, r.payloadLength);
+    });
+    ASSERT_EQ(payloads.size(), 2u);
+    EXPECT_EQ(payloads[0], "boot");
+    EXPECT_EQ(payloads[1], "ARMED");
+}
+
 TEST_F(AuditTest, TimestampsAreMonotonic) {
     {
         AuditLogger logger(auditPath_);

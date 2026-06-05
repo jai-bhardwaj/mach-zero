@@ -4,15 +4,27 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <functional>
 #include <mutex>
 #include <chrono>
 #include <cstring>
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
 
 namespace mach_zero::transport {
 
 // Durable message recording for replay and audit.
 // Records messages to a binary log file with nanosecond timestamps.
 // Format: [8 bytes timestamp][4 bytes stream_id][4 bytes length][N bytes payload]
+//
+// Durability: the write path uses a raw POSIX fd so we can fsync. Each record's
+// header+payload is written in a SINGLE ::write — previously they were two
+// separate buffered writes, so a crash between them left a header advertising a
+// payload that never made it, which corrupts replay (the reader trusts
+// payloadLength). Per-record fsync is opt-in; otherwise call sync() periodically
+// and rely on fsync-on-close. Replay readers use std::ifstream (byte format
+// unchanged).
 class AeronArchive {
 public:
     struct RecordHeader {
@@ -21,8 +33,15 @@ public:
         uint32_t payloadLength;
     };
 
+    struct Config {
+        bool durableEachRecord = false;
+    };
+
     explicit AeronArchive(const std::string& archivePath)
         : path_(archivePath) {}
+
+    AeronArchive(const std::string& archivePath, Config config)
+        : path_(archivePath), config_(config) {}
 
     ~AeronArchive() {
         close();
@@ -30,36 +49,54 @@ public:
 
     bool open() {
         std::lock_guard<std::mutex> lock(mutex_);
-        file_.open(path_, std::ios::binary | std::ios::app);
-        if (!file_.is_open()) return false;
+        if (fd_ >= 0) return true;
+        fd_ = ::open(path_.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if (fd_ < 0) return false;
         isOpen_ = true;
         return true;
     }
 
     void close() {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (file_.is_open()) {
-            file_.flush();
-            file_.close();
+        if (fd_ >= 0) {
+            ::fsync(fd_);
+            ::close(fd_);
+            fd_ = -1;
         }
         isOpen_ = false;
     }
 
-    // Record a message with current timestamp
+    // Record a message with current timestamp.
     bool record(int32_t streamId, const char* data, uint32_t length) {
-        if (!isOpen_) return false;
-
         RecordHeader header;
         header.timestampNanos = currentNanos();
         header.streamId = streamId;
         header.payloadLength = length;
 
         std::lock_guard<std::mutex> lock(mutex_);
-        file_.write(reinterpret_cast<const char*>(&header), sizeof(header));
-        file_.write(data, length);
+        if (fd_ < 0) return false;
+
+        // One contiguous write of header+payload: a crash can't split them.
+        scratch_.clear();
+        const char* hdrBytes = reinterpret_cast<const char*>(&header);
+        scratch_.insert(scratch_.end(), hdrBytes, hdrBytes + sizeof(header));
+        if (length > 0 && data) {
+            scratch_.insert(scratch_.end(), data, data + length);
+        }
+        if (!writeAll(scratch_.data(), scratch_.size())) return false;
+
         ++recordCount_;
         totalBytes_ += sizeof(header) + length;
-        return file_.good();
+        if (config_.durableEachRecord) {
+            if (::fsync(fd_) != 0) return false;
+        }
+        return true;
+    }
+
+    // Durably checkpoint the archive to disk.
+    bool sync() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return fd_ >= 0 && ::fsync(fd_) == 0;
     }
 
     // Replay all records from the archive file, calling the callback for each
@@ -109,8 +146,24 @@ private:
                 now.time_since_epoch()).count());
     }
 
+    bool writeAll(const char* p, size_t n) {
+        size_t off = 0;
+        while (off < n) {
+            ssize_t w = ::write(fd_, p + off, n - off);
+            if (w < 0) {
+                if (errno == EINTR) continue;
+                return false;
+            }
+            if (w == 0) return false;
+            off += static_cast<size_t>(w);
+        }
+        return true;
+    }
+
     std::string path_;
-    std::ofstream file_;
+    Config config_;
+    int fd_ = -1;
+    std::vector<char> scratch_;
     std::mutex mutex_;
     bool isOpen_ = false;
     uint64_t recordCount_ = 0;
