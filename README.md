@@ -2,6 +2,32 @@
 
 Ultra-low latency algorithmic trading system. C++20 core engine with a Next.js 16 web dashboard. Targets **Binance** (crypto) and **NSE** (India equity) with sub-microsecond risk validation and nanosecond-precision message encoding.
 
+## How this was built
+
+One engineer, built with heavy AI assistance (Claude Code) across design, implementation and review.
+I made the architectural calls — Aeron for IPC, SBE for the wire format, a pre-trade risk gate on the
+hot path, QuestDB for the time series — and drove the system to a working end-to-end state.
+
+Size, counted honestly from tracked source:
+
+| | Files | Lines |
+|---|---|---|
+| C++ core, hand-written | 85 | ~11,100 |
+| C++ SBE codecs, generated from schema | 18 | ~8,500 |
+| TypeScript / React dashboard | 228 | ~24,300 |
+| **Tests** | **20** | **173 gtest cases** |
+
+Stating the provenance plainly because it is the interesting part. Deciding *what* to build at this
+scale, keeping a latency budget honest, and knowing which generated code to throw away is the skill
+the tooling does not replace.
+
+### What the numbers mean
+
+The latency figures below are **component-level p99 microbenchmarks on an Apple M-series laptop** — a
+risk-gate call, one order-book update, an SBE encode/decode round-trip. They are not end-to-end
+exchange round-trips and not production figures on server hardware. Numbers measured on a different
+machine, or with the network in the path, will differ.
+
 ## Architecture
 
 ```
