@@ -98,3 +98,9 @@ Thumbs.db
 .playwright-mcp/
 infra/tuning/aeron-all.jar
 .claude/scheduled_tasks.lock
+
+# Local agent/editor tooling. Never belongs in a public repo: .mcp.json carries
+# a live Supabase project ref, and .claude/ holds settings.local.json, internal
+# planning notes and whole worktree copies of this tree.
+.mcp.json
+.claude/
