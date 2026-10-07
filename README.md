@@ -71,11 +71,14 @@ The five figures previously published here were 83, 83, 42, 42 and 42 ns — tha
 two ticks of the clock, every one of them.** An empty function timed the same way yields 42 ns.
 The table was measuring the resolution of the instrument, not the cost of the code.
 
-Re-measuring it properly means timing a loop of N iterations and dividing, with a compiler
-barrier so the body is not elided, reporting a median across repetitions rather than a single
-shot. That is the approach used in
-[spsc-queue](https://github.com/jai-bhardwaj/spsc-queue), and these components will be
-re-benchmarked the same way before any latency claim reappears here.
+Re-measuring it properly means bracketing a loop of many thousands of iterations with a single
+pair of clock reads and dividing, with a compiler barrier so the body is not elided, and
+reporting a median across repetitions rather than a single shot. Measured that way the interval
+is milliseconds wide and the clock's 41.7 ns granularity stops mattering. These components will
+be re-benchmarked that way before any latency claim reappears here.
+
+`infra/tuning/clock_resolution_probe.cpp` prints the timebase and the smallest resolvable
+interval on whatever machine you run it on.
 
 173 gtest cases across 20 test files.
 
