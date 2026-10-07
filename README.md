@@ -21,12 +21,6 @@ Stating the provenance plainly because it is the interesting part. Deciding *wha
 scale, keeping a latency budget honest, and knowing which generated code to throw away is the skill
 the tooling does not replace.
 
-### What the numbers mean
-
-The latency figures below are **component-level p99 microbenchmarks on an Apple M-series laptop** — a
-risk-gate call, one order-book update, an SBE encode/decode round-trip. They are not end-to-end
-exchange round-trips and not production figures on server hardware. Numbers measured on a different
-machine, or with the network in the path, will differ.
 
 ## Architecture
 
@@ -64,15 +58,26 @@ machine, or with the network in the path, will differ.
 
 ## Performance
 
-| Component | p99 Latency | Measured On |
-|---|---|---|
-| Risk gate validation (5 checks) | 83 ns | Apple M-series |
-| Order book update | 83 ns | Apple M-series |
-| SBE encode + decode roundtrip | 42 ns | Apple M-series |
-| Kill switch activation | 42 ns | Apple M-series |
-| Arena allocator | 42 ns | Apple M-series |
+**These numbers have been withdrawn. The benchmark was invalid and I would rather say so than
+ship figures I cannot defend.**
 
-117 unit/integration/regression tests, all passing.
+The harness in `infra/tuning/LatencyBench.h` timed a *single* operation between two
+`steady_clock` reads. On Apple silicon that clock is backed by `mach_absolute_time` with a
+125/3 timebase — **41.667 ns per tick** — so it can only ever return multiples of ~41.7 ns.
+Measured on this machine, the smallest non-zero deltas between two consecutive clock reads are
+exactly `41, 42, 83, 84, 125, 166, 167, 208` ns.
+
+The five figures previously published here were 83, 83, 42, 42 and 42 ns — that is, **one or
+two ticks of the clock, every one of them.** An empty function timed the same way yields 42 ns.
+The table was measuring the resolution of the instrument, not the cost of the code.
+
+Re-measuring it properly means timing a loop of N iterations and dividing, with a compiler
+barrier so the body is not elided, reporting a median across repetitions rather than a single
+shot. That is the approach used in
+[spsc-queue](https://github.com/jai-bhardwaj/spsc-queue), and these components will be
+re-benchmarked the same way before any latency claim reappears here.
+
+173 gtest cases across 20 test files.
 
 ## Project Structure
 
